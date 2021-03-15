@@ -1,0 +1,8 @@
+modules: LUM-REG:LUM-EQUIPMENT-MIB
+    os:
+        version: LUM-REG::sysNodeVersion.0
+
+    sensors:
+        data:
+            -
+                oid: equipmentSubrackList
