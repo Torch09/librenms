@@ -1,8 +1,126 @@
-modules: LUM-REG:LUM-EQUIPMENT-MIB
+mib: CORIANT-GROOVE-MIB:LUM-EQUIPMENT-MIB:LUM-IFBASIC-MIB:LUM-IFOTN-MIB:LUM-IFOTNMON-MIB:LUM-OA-MIB:LUM-OCM-MIB:LUM-REG:LUM-SYSTEM-MIB
+modules:
     os:
-        version: LUM-REG::sysNodeVersion.0
+        version: LUM-SYSTEM-MIB::sysNodeVersion.0
 
     sensors:
-        data:
-            -
-                oid: equipmentSubrackList
+        pre-cache:
+            data:
+                -
+                    oid:
+                        - equipmentSubrackTempThreshold
+                        - equipmentBoardTempThreshold
+                        - equipmentBoardTempLowThreshold
+
+        state:
+            data:
+                -
+                    oid: equipmentSubrackTable
+                    value:  equipmentSubrackOperStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.11.2.2.1.1.19.{{ $index }}'
+                    descr: 'Operational State Subrack {{ $index }}'
+                    group: Subrack Operational States
+                    state_name: equipmentSubrackOperStatus
+                    states:
+                        - { descr: notPresent, graph: 0, value: 1, generic: 0 }
+                        - { descr: down, graph: 0, value: 2, generic: 2 }
+                        - { descr: up, graph: 0, value: 3, generic: 0 }
+
+                -
+                    oid: equipmentSubrackTable
+                    value: equipmentSubrackTempHighExceeded
+                    num_oid: '.1.3.6.1.4.1.8708.2.11.2.2.1.1.12.{{ $index }}'
+                    descr: 'Temperature High Alarm Subrack {{ $index }}'
+                    group: Subrack Temperature States
+                    state_name: equipmentSubrackTempHighExceeded
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }
+
+                -
+                    oid: equipmentBoardTable
+                    value:  equipmentBoardOperStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.11.2.3.1.1.2.{{ $index }}'
+                    descr: '{{ $equipmentBoardSubrack }}:{{ $equipmentBoardName }} - {{ $equipmentBoardDescr }}'
+                    group: Board Operational States
+                    state_name: BoardOperStatus
+                    states:
+                        - { descr: notPresent, graph: 0, value: 1, generic: 0 }
+                        - { descr: down, graph: 0, value: 2, generic: 2 }
+                        - { descr: up, graph: 0, value: 3, generic: 0 }           
+
+                -
+                    oid: equipmentBoardTable
+                    value: equipmentBoardTempHighExceeded
+                    num_oid: '.1.3.6.1.4.1.8708.2.11.2.3.1.1.17.{{ $index }}'
+                    descr: 'Temperature High Alarm {{ $equipmentBoardSubrack }}:{{ $equipmentBoardName }}'
+                    group: Board Temperature States
+                    state_name: BoardTempHighExceeded
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }  
+
+                -
+                    oid: equipmentPowerTable
+                    value:  equipmentPowerPowerFailed
+                    num_oid: '.1.3.6.1.4.1.8708.2.11.2.4.1.1.21.{{ $index }}'
+                    descr: 'PSU Status {{ $equipmentPowerName }}, Type: {{ $equipmentPowerType }}'
+                    group: PSU States
+                    state_name: PSUOperStatus
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }                
+
+                -
+                    oid:  equipmentFanTable
+                    value: equipmentFanMainUnitFailed
+                    num_oid: '.1.3.6.1.4.1.8708.2.11.2.5.1.1.10.{{ $index }}'
+                    descr: 'Fan Status {{ $equipmentFanName }}'
+                    group: Fan States
+                    state_name: FanOperStatus
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }      
+
+                -
+                    oid: oaIfTable
+                    value: oaIfOperStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.10.{{ $index }}'
+                    descr: '{{ $oaIfSubrack }}:{{ $oaIfName }} - {{ $oaIfDescr }}'
+                    group: Amplifier Operational States
+                    state_name: AmpOperStatus
+                    states:
+                        - { descr: notPresent, graph: 0, value: 1, generic: 0 }
+                        - { descr: down, graph: 0, value: 2, generic: 2 }
+                        - { descr: up, graph: 0, value: 3, generic: 0 }                                                                                                   
+ 
+
+        temperature:
+            data:
+                -
+                    oid: equipmentSubrackTable
+                    value: equipmentSubrackTemp
+                    divisor: 10
+                    num_oid: '.1.3.6.1.4.1.8708.2.11.2.2.1.1.11.{{ $index }}'
+                    descr: 'Subrack {{ $index }} Temperature'
+                    group: Subrack Temperature
+                    high_limit:  equipmentSubrackTempThreshold
+                    low_limit: 1
+                    
+                -
+                    oid: equipmentBoardTable
+                    value: equipmentBoardTemp
+                    divisor: 10
+                    num_oid: '.1.3.6.1.4.1.8708.2.11.2.3.1.1.8.{{ $index }}'
+                    descr: '{{ $equipmentBoardSubrack }}:{{ $equipmentBoardName }} Temperature'
+                    group: Board Temperature
+                    high_limit: equipmentBoardTempThreshold  
+                    low_limit: equipmentBoardTempLowThreshold              
+
+                -
+                    oid: oaIfTable
+                    value: oaIfActualLaserTemp
+                    divisor: 10
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.43.{{ $index }}'
+                    descr: '{{ $oaIfSubrack }}:{{ $oaIfName }} Temperature'
+                    group: Amplifier Laser Temperature         
