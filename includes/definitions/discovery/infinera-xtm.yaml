@@ -2,6 +2,7 @@ mib: CORIANT-GROOVE-MIB:LUM-EQUIPMENT-MIB:LUM-IFBASIC-MIB:LUM-IFOTN-MIB:LUM-IFOT
 modules:
     os:
         version: LUM-SYSTEM-MIB::sysNodeVersion.0
+        location: LUM-SYSTEM-MIB::sysNodeLocation.0
 
     sensors:
         pre-cache:
@@ -92,8 +93,223 @@ modules:
                     states:
                         - { descr: notPresent, graph: 0, value: 1, generic: 0 }
                         - { descr: down, graph: 0, value: 2, generic: 2 }
-                        - { descr: up, graph: 0, value: 3, generic: 0 }                                                                                                   
- 
+                        - { descr: up, graph: 0, value: 3, generic: 0 }     
+
+                -
+                    oid: oaIfTable
+                    value: oaIfSaturationFault
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.52.{{ $index }}'
+                    descr: 'Ampliefier Saturation Fault {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Signal States
+                    state_name: AmpSaturationFault
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }  
+                -
+                    oid: oaIfTable
+                    value: oaIfLaserTempOutOfRange
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.57.{{ $index }}'
+                    descr: 'Temperature Amplifier {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Temperature States
+                    state_name: AmpTempExceeded
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }       
+
+                -
+                    oid: oaIfTable
+                    value: oaIfLossOfSignal
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.26.{{ $index }}'
+                    descr: 'Ampliefier LoS {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Signal States
+                    state_name: AmpLoS
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }   
+                                                                                                                                                        
+                -
+                    oid: oaIfTable
+                    value: oaIfTxSignalStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.59.{{ $index }}'
+                    descr: 'Ampliefier Tx Signals {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Signal States
+                    state_name: AmpliefierTxSignalStatus
+                    states:
+                        - { descr: down, graph: 0, value: 1, generic: 2 }
+                        - { descr: degraded, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 3, generic: 0 }   
+
+                -
+                    oid: oaIfTable
+                    value: oaIfRxSignalStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.60.{{ $index }}'
+                    descr: 'Ampliefier Rx Signals {{ $oaIfSubrack }}:{{ $oaIfName }} '
+                    group: Amplifier Signal States
+                    state_name: AmpliefierRxSignalStatus
+                    states:
+                        - { descr: down, graph: 0, value: 1, generic: 2 }
+                        - { descr: degraded, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 3, generic: 0 }   
+
+                -
+                    oid: oaIfTable
+                    value: oaIfOutputPowerFail
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.61.{{ $index }}'
+                    descr: 'Ampliefier Output Power {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Signal States
+                    state_name: AmpLoS
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }      
+
+                -
+                    oid: ocmIfTable
+                    value: ocmIfOperStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.33.2.2.1.1.9.{{ $index }}'
+                    descr: '{{ $ocmIfSubrack }}:{{ $ocmIfName }} - {{ $ocmIfDescr }}'
+                    group: OCM Operational States
+                    state_name: OCMOperStatus
+                    states:
+                        - { descr: notPresent, graph: 0, value: 1, generic: 0 }
+                        - { descr: down, graph: 0, value: 2, generic: 2 }
+                        - { descr: up, graph: 0, value: 3, generic: 0 }  
+
+                -
+                    oid: ocmIfTable
+                    value: ocmIfSwitchFailure
+                    num_oid: '.1.3.6.1.4.1.8708.2.33.2.2.1.1.22.{{ $index }}'
+                    descr: 'OCM Switch Status {{ $ocmIfSubrack }}:{{ $ocmIfName }}'
+                    group: OCM Module States
+                    state_name: OCMSwitch
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }       
+
+                -
+                    oid: ocmIfTable
+                    value: ocmIfModuleFailure
+                    num_oid: '.1.3.6.1.4.1.8708.2.33.2.2.1.1.25.{{ $index }}'
+                    descr: 'OCM Module Status {{ $ocmIfSubrack }}:{{ $ocmIfName }}'
+                    group: OCM Module States
+                    state_name: OCMModule
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }      
+
+                -
+                    oid: ifOtnOtuTable
+                    value: ifOtnOtuTxSignalStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.50.2.2.1.1.4.{{ $index }}'
+                    descr: 'OTN Tx Signal {{ $ifOtnOtuName }}'
+                    group: OTN Signal States
+                    state_name: OTNTxSignalStatus
+                    states:
+                        - { descr: down, graph: 0, value: 1, generic: 2 }
+                        - { descr: degraded, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 3, generic: 0 }         
+
+                -
+                    oid: ifOtnOtuTable
+                    value: ifOtnOtuRxSignalStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.50.2.2.1.1.5.{{ $index }}'
+                    descr: 'OTN Rx Signal {{ $ifOtnOtuName }}'
+                    group: OTN Signal States
+                    state_name: OTNRxSignalStatus
+                    states:
+                        - { descr: down, graph: 0, value: 1, generic: 2 }
+                        - { descr: degraded, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 3, generic: 0 }   
+
+                -
+                    oid: ifOtnOtuTable
+                    value: ifOtnOtuLossOfFrame
+                    num_oid: '.1.3.6.1.4.1.8708.2.50.2.2.1.1.6.{{ $index }}'
+                    descr: 'OTN Loss of Frame {{ $ifOtnOtuName }}'
+                    group: OTN Port States
+                    state_name: OTNLoF
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }      
+
+                -
+                    oid: ifOtnOtuTable
+                    value: ifOtnOtuLossOfMultiframe
+                    num_oid: '.1.3.6.1.4.1.8708.2.50.2.2.1.1.8.{{ $index }}'
+                    descr: 'OTN Loss of Multiframe {{ $ifOtnOtuName }}'
+                    group: OTN Port States
+                    state_name: OTNLoMF
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }                                                                                         
+
+                -
+                    oid: ifOtnOtuTable
+                    value: ifOtnOtuRxAlarmIndicationSignal
+                    num_oid: '.1.3.6.1.4.1.8708.2.50.2.2.1.1.7.{{ $index }}'
+                    descr: 'OTN Indication Signal {{ $ifOtnOtuName }}'
+                    group: OTN Port States
+                    state_name: OTNIndicationSignal
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }   
+
+                -
+                    oid: ifOtnMonSmTable
+                    value: ifOtnMonSmTxSignalStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.55.2.2.1.1.4.{{ $index }}'
+                    descr: 'OTN Tx Signal {{ $ifOtnMonSmName }}'
+                    group: OTN Signal States
+                    state_name: OTNTxMonSignalStatus
+                    states:
+                        - { descr: down, graph: 0, value: 1, generic: 2 }
+                        - { descr: degraded, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 3, generic: 0 }  
+
+                -
+                    oid: ifOtnMonSmTable
+                    value: ifOtnMonSmRxSignalStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.55.2.2.1.1.5.{{ $index }}'
+                    descr: 'OTN Rx Signal {{ $ifOtnMonSmName }}'
+                    group: OTN Signal States
+                    state_name: OTNRxMonSignalStatus
+                    states:
+                        - { descr: down, graph: 0, value: 1, generic: 2 }
+                        - { descr: degraded, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 3, generic: 0 }  
+
+                -
+                    oid: ifOtnMonSmTable
+                    value: ifOtnMonSmBackwardDefectIndication
+                    num_oid: '.1.3.6.1.4.1.8708.2.55.2.2.1.1.5.{{ $index }}'
+                    descr: 'OTN BDI {{ $ifOtnMonSmName }}'
+                    group: OTN Port States
+                    state_name: OTNBDIState
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }         
+
+                -
+                    oid: ifOtnMonSmTable
+                    value: ifOtnMonSmIncomingAlignmentError
+                    num_oid: '.1.3.6.1.4.1.8708.2.55.2.2.1.1.7.{{ $index }}'
+                    descr: 'OTN IAE {{ $ifOtnMonSmName }}'
+                    group: OTN Port States
+                    state_name: OTNIAEState
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }      
+
+                -
+                    oid: ifOtnMonSmTable
+                    value: ifOtnMonSmBackwardIncomingAlignmentError
+                    num_oid: '.1.3.6.1.4.1.8708.2.55.2.2.1.1.8.{{ $index }}'
+                    descr: 'OTN BIAE {{ $ifOtnMonSmName }}'
+                    group: OTN Port States
+                    state_name: OTNBIAEState
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }                                                                
+
 
         temperature:
             data:
@@ -102,17 +318,17 @@ modules:
                     value: equipmentSubrackTemp
                     divisor: 10
                     num_oid: '.1.3.6.1.4.1.8708.2.11.2.2.1.1.11.{{ $index }}'
-                    descr: 'Subrack {{ $index }} Temperature'
+                    descr: 'Subrack Temperature {{ $index }}'
                     group: Subrack Temperature
                     high_limit:  equipmentSubrackTempThreshold
-                    low_limit: 1
+                    low_limit: 3
                     
                 -
                     oid: equipmentBoardTable
                     value: equipmentBoardTemp
                     divisor: 10
                     num_oid: '.1.3.6.1.4.1.8708.2.11.2.3.1.1.8.{{ $index }}'
-                    descr: '{{ $equipmentBoardSubrack }}:{{ $equipmentBoardName }} Temperature'
+                    descr: 'Temperature {{ $equipmentBoardSubrack }}:{{ $equipmentBoardName }}'
                     group: Board Temperature
                     high_limit: equipmentBoardTempThreshold  
                     low_limit: equipmentBoardTempLowThreshold              
@@ -122,5 +338,48 @@ modules:
                     value: oaIfActualLaserTemp
                     divisor: 10
                     num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.43.{{ $index }}'
-                    descr: '{{ $oaIfSubrack }}:{{ $oaIfName }} Temperature'
-                    group: Amplifier Laser Temperature         
+                    descr: 'Temperature {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Laser Temperature     
+
+
+        dbm:
+            options:
+                skip_values: 0
+            data:
+                -
+                    oid: oaIfTable 
+                    value: oaIfRxPowerLevel
+                    divisor: 10
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.20.{{ $index }}'
+                    descr: 'Amplifier Rx {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Laser dBm  
+                    index: oa-rx-dbm.{{ $index }}                        
+
+                -
+                    oid: oaIfTable 
+                    value: oaIfTxPowerLevel
+                    divisor: 10
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.19.{{ $index }}'
+                    descr: 'Amplifier Tx {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Laser dBm   
+                    index: oa-tx-dbm.{{ $index }}                 
+
+                -
+                    oid: oaIfTable 
+                    value: oaIfActualGain
+                    divisor: 10
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.51.{{ $index }}'
+                    descr: 'Amplifier Gain {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Laser Gain dBm   
+                    index: oa-gain-dbm.{{ $index }}                       
+
+        current:
+            data:
+                -
+                    oid: oaIfTable
+                    value: oaIfLaserBias
+                    divisor: 10000   
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.22.{{ $index }}'
+                    descr: 'Amplifier current {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Laser Current
+                                 
