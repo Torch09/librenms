@@ -1,8 +1,25 @@
-mib: LUM-EQUIPMENT-MIB:LUM-IFBASIC-MIB:LUM-IFOTN-MIB:LUM-IFOTNMON-MIB:LUM-OA-MIB:LUM-OCM-MIB:LUM-REG:LUM-SYSTEM-MIB
+mib: LUM-EQUIPMENT-MIB:LUM-IFBASIC-MIB:LUM-IFOTN-MIB:LUM-IFOTNMON-MIB:LUM-OA-MIB:LUM-OCM-MIB:LUM-REG:LUM-SYSTEM-MIB:LUM-IFPERF-MIB:LUM-IFPHYSICAL-MIB:LUM-SYSINFO-MIB:LUM-WDM-MIB
 modules:
     os:
         version: LUM-SYSTEM-MIB::sysNodeVersion.0
         location: LUM-SYSTEM-MIB::sysNodeLocation.0
+
+    mempools:
+        data:
+            -
+                oid: LUM-SYSINFO-MIB::sysinfoBoardMemoryTable
+                total: LUM-SYSINFO-MIB::sysinfoBoardMemoryTotalMem
+                free: LUM-SYSINFO-MIB::sysinfoBoardMemoryFreeMem
+                percent_used: LUM-SYSINFO-MIB::sysinfoBoardMemoryUsageMemPercent
+                descr: '{{ LUM-SYSINFO-MIB::sysinfoBoardMemoryName }}'   
+
+    processors:
+        data:
+            -
+                oid: sysinfoBoardLoadTable
+                value: sysinfoBoardLoadLoad1Min
+                num_oid: '.1.3.6.1.4.1.8708.2.71.2.2.1.1.3.{{ $index }}'
+                descr: '{{ $sysinfoBoardLoadName }} {{ $count }}'
 
     sensors:
         pre-cache:
@@ -106,7 +123,7 @@ modules:
                     oid: oaIfTable
                     value: oaIfSaturationFault
                     num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.52.{{ $index }}'
-                    descr: 'Ampliefier Saturation Fault {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    descr: 'Amplifier Saturation Fault {{ $oaIfSubrack }}:{{ $oaIfName }}'
                     group: Amplifier Signal States
                     entPhysicalIndex: 'oa-{{ $index }}'
                     state_name: AmpSaturationFault
@@ -129,7 +146,7 @@ modules:
                     oid: oaIfTable
                     value: oaIfLossOfSignal
                     num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.26.{{ $index }}'
-                    descr: 'Ampliefier LoS {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    descr: 'Amplifier LoS {{ $oaIfSubrack }}:{{ $oaIfName }}'
                     group: Amplifier Signal States
                     entPhysicalIndex: 'oa-{{ $index }}'
                     state_name: AmpLoS
@@ -141,10 +158,10 @@ modules:
                     oid: oaIfTable
                     value: oaIfTxSignalStatus
                     num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.59.{{ $index }}'
-                    descr: 'Ampliefier Tx Signals {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    descr: 'Amplifier Tx Signals {{ $oaIfSubrack }}:{{ $oaIfName }}'
                     group: Amplifier Signal States
                     entPhysicalIndex: 'oa-{{ $index }}'
-                    state_name: AmpliefierTxSignalStatus
+                    state_name: AmplifierTxSignalStatus
                     states:
                         - { descr: down, graph: 0, value: 1, generic: 2 }
                         - { descr: degraded, graph: 0, value: 2, generic: 2 }
@@ -154,10 +171,10 @@ modules:
                     oid: oaIfTable
                     value: oaIfRxSignalStatus
                     num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.60.{{ $index }}'
-                    descr: 'Ampliefier Rx Signals {{ $oaIfSubrack }}:{{ $oaIfName }} '
+                    descr: 'Amplifier Rx Signals {{ $oaIfSubrack }}:{{ $oaIfName }} '
                     group: Amplifier Signal States
                     entPhysicalIndex: 'oa-{{ $index }}'
-                    state_name: AmpliefierRxSignalStatus
+                    state_name: AmplifierRxSignalStatus
                     states:
                         - { descr: down, graph: 0, value: 1, generic: 2 }
                         - { descr: degraded, graph: 0, value: 2, generic: 2 }
@@ -167,7 +184,7 @@ modules:
                     oid: oaIfTable
                     value: oaIfOutputPowerFail
                     num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.61.{{ $index }}'
-                    descr: 'Ampliefier Output Power {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    descr: 'Amplifier Output Power {{ $oaIfSubrack }}:{{ $oaIfName }}'
                     group: Amplifier Signal States
                     entPhysicalIndex: 'oa-{{ $index }}'
                     state_name: AmpLoS
@@ -336,6 +353,46 @@ modules:
                         - { descr: alarm, graph: 0, value: 2, generic: 2 }
                         - { descr: ok, graph: 0, value: 1, generic: 0 }                                                                
 
+                -
+                    oid: wdmCtrlChannelTable
+                    value: wdmCtrlChannelStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.4.2.8.1.1.16.{{ $index }}'
+                    descr: 'WDM Channel Status {{ $wdmCtrlChannelName }}'
+                    group: WDM Channel States
+                    entPhysicalIndex: 'wdm-{{ $index }}'
+                    state_name: WDMChannelStatus
+                    states:
+                        - { descr: initial, graph: 0, value: 1, generic: 3 }
+                        - { descr: searching, graph: 0, value: 2, generic: 1 }
+                        - { descr: regulating, graph: 0, value: 3, generic: 1 }
+                        - { descr: ok, graph: 0, value: 4, generic: 0 }
+                        - { descr: not found, graph: 0, value: 5, generic: 2 }
+                        - { descr: error, graph: 0, value: 6, generic: 2 }
+                        - { descr: waiting, graph: 0, value: 7, generic: 1 }
+                    skip_values:
+                        -
+                            oid: wdmCtrlChannelAdminStatus
+                            op: '='
+                            value: 1
+                          
+                -
+                    oid: ifBasicAdminTable
+                    value: ifBasicAdminOperStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.46.2.3.1.1.9.{{ $index }}'
+                    descr: '{{ $ifBasicAdminName }} {{ $ifBasicAdminDescr }}'
+                    group: Physical Port States
+                    entPhysicalIndex: 'physport-{{ $index }}'
+                    state_name: PhysPortState
+                    states:
+                        - { descr: notPresent, graph: 0, value: 1, generic: 0 }
+                        - { descr: down, graph: 0, value: 2, generic: 2 }
+                        - { descr: up, graph: 0, value: 3, generic: 0 }  
+                    skip_values:
+                        -
+                            oid: ifBasicAdminAdminStatus
+                            op: '='
+                            value: 1                        
+
 
         temperature:
             data:
@@ -370,6 +427,16 @@ modules:
                     group: Amplifier Laser Temperature     
                     entPhysicalIndex: 'oa-{{ $index }}'
 
+                -
+                    oid:  ifPhysicalTrxTable
+                    value: ifPhysicalTrxLaserTemp
+                    divisor: 10   
+                    num_oid: '.1.3.6.1.4.1.8708.2.47.2.2.1.1.5.{{ $index }}'
+                    descr: 'Laser Temperature {{ $ifPhysicalTrxName }}'
+                    group: Laser Temperature
+                    entPhysicalIndex: 'laser-{{ $index }}' 
+                    skip_values: [2147483646, 2147483647, -2147483648]                        
+
 
         dbm:
             options:
@@ -403,7 +470,29 @@ modules:
                     descr: 'Amplifier Gain {{ $oaIfSubrack }}:{{ $oaIfName }}'
                     group: Amplifier Laser Gain dBm   
                     index: oa-gain-dbm.{{ $index }}    
-                    entPhysicalIndex: 'oa-{{ $index }}'                   
+                    entPhysicalIndex: 'oa-{{ $index }}'    
+
+                -
+                    oid: ifPerfL0Table 
+                    value: ifPerfL0RxPower
+                    divisor: 10
+                    num_oid: '.1.3.6.1.4.1.8708.2.56.2.6.1.1.4.{{ $index }}'
+                    descr: 'Laser Rx {{ $ifPerfL0Name }}'
+                    group: Laser dBm   
+                    index: laser-rx-dbm.{{ $index }}    
+                    entPhysicalIndex: 'laser-{{ $index }}' 
+                    skip_values: [2147483646, -2147483648]    
+
+                -
+                    oid: ifPerfL0Table 
+                    value: ifPerfL0TxPower
+                    divisor: 10
+                    num_oid: '.1.3.6.1.4.1.8708.2.56.2.6.1.1.5.{{ $index }}'
+                    descr: 'Laser Tx {{ $ifPerfL0Name }}'
+                    group: Laser dBm   
+                    index: laser-tx-dbm.{{ $index }}    
+                    entPhysicalIndex: 'laser-{{ $index }}'
+                    skip_values: [2147483646, -2147483648]                                                 
 
         current:
             data:
@@ -415,4 +504,34 @@ modules:
                     descr: 'Amplifier current {{ $oaIfSubrack }}:{{ $oaIfName }}'
                     group: Amplifier Laser Current
                     entPhysicalIndex: 'oa-{{ $index }}'
-                                 
+
+                -
+                    oid: oaIfTable
+                    value: oaIfLaserBias
+                    divisor: 10000   
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.22.{{ $index }}'
+                    descr: 'Amplifier current {{ $oaIfSubrack }}:{{ $oaIfName }}'
+                    group: Amplifier Laser Current
+                    entPhysicalIndex: 'oa-{{ $index }}'                    
+
+                -
+                    oid:  ifPhysicalTrxTable
+                    value: ifPhysicalTrxLaserBias
+                    divisor: 10000   
+                    num_oid: '.1.3.6.1.4.1.8708.2.47.2.2.1.1.4.{{ $index }}'
+                    descr: 'Laser current {{ $ifPhysicalTrxName }}'
+                    group: Laser Current
+                    entPhysicalIndex: 'laser-{{ $index }}' 
+                    skip_values: [2147483646, 2147483647, -2147483648, 4294967293, 4294967294, 2147483648]    
+
+        chromatic_dispersion:
+            data:
+                -
+                    oid: ifPerfL0Table 
+                    value: ifPerfL0ChromaticDispersion
+                    num_oid: '.1.3.6.1.4.1.8708.2.56.2.6.1.1.7.{{ $index }}'
+                    descr: 'Laser CD {{ $ifPerfL0Name }}'
+                    group: Laser Chromatic Dispersion   
+                    index: laser-cd.{{ $index }}    
+                    entPhysicalIndex: 'laser-{{ $index }}'
+                    skip_values: [2147483646, 2147483647, -2147483648]                      
