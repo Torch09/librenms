@@ -147,6 +147,11 @@ modules:
                         - { descr: notPresent, graph: 0, value: 1, generic: 0 }
                         - { descr: down, graph: 0, value: 2, generic: 2 }
                         - { descr: up, graph: 0, value: 3, generic: 0 }     
+                    skip_values:
+                        -
+                            oid: oaIfAdminStatus
+                            op: '='
+                            value: 1  
 
                 -
                     oid: oaIfTable
@@ -159,6 +164,11 @@ modules:
                     states:
                         - { descr: alarm, graph: 0, value: 2, generic: 2 }
                         - { descr: ok, graph: 0, value: 1, generic: 0 }  
+                    skip_values:
+                        -
+                            oid: oaIfAdminStatus
+                            op: '='
+                            value: 1                          
                 -
                     oid: oaIfTable
                     value: oaIfLaserTempOutOfRange
@@ -169,7 +179,12 @@ modules:
                     state_name: AmpTempExceeded
                     states:
                         - { descr: alarm, graph: 0, value: 2, generic: 2 }
-                        - { descr: ok, graph: 0, value: 1, generic: 0 }       
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }   
+                    skip_values:
+                        -
+                            oid: oaIfAdminStatus
+                            op: '='
+                            value: 1                              
 
                 -
                     oid: oaIfTable
@@ -182,6 +197,11 @@ modules:
                     states:
                         - { descr: alarm, graph: 0, value: 2, generic: 2 }
                         - { descr: ok, graph: 0, value: 1, generic: 0 }   
+                    skip_values:
+                        -
+                            oid: oaIfAdminStatus
+                            op: '='
+                            value: 1                          
                                                                                                                                                         
                 -
                     oid: oaIfTable
@@ -195,6 +215,11 @@ modules:
                         - { descr: down, graph: 0, value: 1, generic: 2 }
                         - { descr: degraded, graph: 0, value: 2, generic: 2 }
                         - { descr: ok, graph: 0, value: 3, generic: 0 }   
+                    skip_values:
+                        -
+                            oid: oaIfAdminStatus
+                            op: '='
+                            value: 1                          
 
                 -
                     oid: oaIfTable
@@ -207,7 +232,12 @@ modules:
                     states:
                         - { descr: down, graph: 0, value: 1, generic: 2 }
                         - { descr: degraded, graph: 0, value: 2, generic: 2 }
-                        - { descr: ok, graph: 0, value: 3, generic: 0 }   
+                        - { descr: ok, graph: 0, value: 3, generic: 0 }  
+                    skip_values:
+                        -
+                            oid: oaIfAdminStatus
+                            op: '='
+                            value: 1                           
 
                 -
                     oid: oaIfTable
@@ -219,7 +249,12 @@ modules:
                     state_name: AmpLoS
                     states:
                         - { descr: alarm, graph: 0, value: 2, generic: 2 }
-                        - { descr: ok, graph: 0, value: 1, generic: 0 }     
+                        - { descr: ok, graph: 0, value: 1, generic: 0 } 
+                    skip_values:
+                        -
+                            oid: oaIfAdminStatus
+                            op: '='
+                            value: 1                              
 
                 -
                     oid: oaVoaClientIfTable
@@ -267,6 +302,11 @@ modules:
                         - { descr: notPresent, graph: 0, value: 1, generic: 0 }
                         - { descr: down, graph: 0, value: 2, generic: 2 }
                         - { descr: up, graph: 0, value: 3, generic: 0 }  
+                    skip_values:
+                        -
+                            oid: ocmIfAdminStatus
+                            op: '='
+                            value: 1                            
 
                 -
                     oid: ocmIfTable
