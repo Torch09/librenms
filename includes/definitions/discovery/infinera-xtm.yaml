@@ -1,7 +1,6 @@
 mib: LUM-EQUIPMENT-MIB:LUM-IFBASIC-MIB:LUM-IFOTN-MIB:LUM-IFOTNMON-MIB:LUM-OA-MIB:LUM-OCM-MIB:LUM-REG:LUM-SYSTEM-MIB:LUM-IFPERF-MIB:LUM-IFPHYSICAL-MIB:LUM-SYSINFO-MIB:LUM-WDM-MIB
 
 poller_modules:
-    entity-physical: false
     hr-mib: false
     ipSystemStats: false
     netstats: false
@@ -11,8 +10,6 @@ poller_modules:
     stp: false
 discovery_modules:
     ports-stack: false
-    entity-physical: false
-    processors: false
     mempools: false
     cisco-vrf-lite: false
     ipv4-addresses: false
@@ -23,7 +20,6 @@ discovery_modules:
     arp-table: false
     bgp-peers: false
     ucd-diskio: false
-    fdb-table: false
     stp: false
     vlans: false
     ports: false
