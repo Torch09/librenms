@@ -61,7 +61,7 @@ modules:
                     oid: equipmentBoardTable
                     value:  equipmentBoardOperStatus
                     num_oid: '.1.3.6.1.4.1.8708.2.11.2.3.1.1.12.{{ $index }}'
-                    descr: '{{ $equipmentBoardSubrack }}:{{ $equipmentBoardName }} - {{ $equipmentBoardDescr }}'
+                    descr: '{{ $equipmentBoardName }} - {{ $equipmentBoardDescr }}'
                     group: Board Operational States
                     entPhysicalIndex: 'board-{{ $index }}'
                     state_name: BoardOperStatus
@@ -74,7 +74,7 @@ modules:
                     oid: equipmentBoardTable
                     value: equipmentBoardTempHighExceeded
                     num_oid: '.1.3.6.1.4.1.8708.2.11.2.3.1.1.17.{{ $index }}'
-                    descr: 'Temperature High Alarm {{ $equipmentBoardSubrack }}:{{ $equipmentBoardName }}'
+                    descr: 'Temperature High Alarm {{ $equipmentBoardName }}'
                     group: Board Temperature States
                     entPhysicalIndex: 'board-{{ $index }}'
                     state_name: BoardTempHighExceeded
@@ -110,7 +110,7 @@ modules:
                     oid: oaIfTable
                     value: oaIfOperStatus
                     num_oid: '.1.3.6.1.4.1.8708.2.19.2.2.1.1.10.{{ $index }}'
-                    descr: '{{ $oaIfSubrack }}:{{ $oaIfName }} - {{ $oaIfDescr }}'
+                    descr: '{{ $oaIfName }} - {{ $oaIfDescr }}'
                     group: Amplifier Operational States
                     entPhysicalIndex: 'oa-{{ $index }}'
                     state_name: AmpOperStatus
@@ -190,13 +190,47 @@ modules:
                     state_name: AmpLoS
                     states:
                         - { descr: alarm, graph: 0, value: 2, generic: 2 }
-                        - { descr: ok, graph: 0, value: 1, generic: 0 }      
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }     
+
+                -
+                    oid: oaVoaClientIfTable
+                    value: oaVoaClientIfOperStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.5.1.1.10.{{ $index }}'
+                    descr: '{{ $oaVoaClientIfName }} - {{ $oaVoaClientIfDescr }}'
+                    group: oaVoa Operational States
+                    state_name: OaVoaOperStatus
+                    states:
+                        - { descr: notPresent, graph: 0, value: 1, generic: 0 }
+                        - { descr: down, graph: 0, value: 2, generic: 2 }
+                        - { descr: up, graph: 0, value: 3, generic: 0 }  
+                    skip_values:
+                        -
+                            oid: oaVoaClientIfAdminStatus
+                            op: '='
+                            value: 1                
+
+                -
+                    oid: oaVoaLineIfTable
+                    value: oaVoaLineIfOperStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.19.2.6.1.1.10.{{ $index }}'
+                    descr: '{{ $oaVoaLineIfName }} - {{ $oaVoaLineIfDescr }}'
+                    group: oaVoa Operational States
+                    state_name: OaVoaOperStatus
+                    states:
+                        - { descr: notPresent, graph: 0, value: 1, generic: 0 }
+                        - { descr: down, graph: 0, value: 2, generic: 2 }
+                        - { descr: up, graph: 0, value: 3, generic: 0 }  
+                    skip_values:
+                        -
+                            oid: oaVoaLineIfAdminStatus
+                            op: '='
+                            value: 1                                                                       
 
                 -
                     oid: ocmIfTable
                     value: ocmIfOperStatus
                     num_oid: '.1.3.6.1.4.1.8708.2.33.2.2.1.1.9.{{ $index }}'
-                    descr: '{{ $ocmIfSubrack }}:{{ $ocmIfName }} - {{ $ocmIfDescr }}'
+                    descr: '{{ $ocmIfName }} - {{ $ocmIfDescr }}'
                     group: OCM Operational States
                     entPhysicalIndex: 'ocm-{{ $index }}'
                     state_name: OCMOperStatus
@@ -228,32 +262,6 @@ modules:
                     states:
                         - { descr: alarm, graph: 0, value: 2, generic: 2 }
                         - { descr: ok, graph: 0, value: 1, generic: 0 }      
-
-                -
-                    oid: ifOtnOtuTable
-                    value: ifOtnOtuTxSignalStatus
-                    num_oid: '.1.3.6.1.4.1.8708.2.50.2.2.1.1.4.{{ $index }}'
-                    descr: 'OTN Tx Signal {{ $ifOtnOtuName }}'
-                    group: OTN Signal States
-                    entPhysicalIndex: 'otn-{{ $index }}'
-                    state_name: OTNTxSignalStatus
-                    states:
-                        - { descr: down, graph: 0, value: 1, generic: 2 }
-                        - { descr: degraded, graph: 0, value: 2, generic: 2 }
-                        - { descr: ok, graph: 0, value: 3, generic: 0 }         
-
-                -
-                    oid: ifOtnOtuTable
-                    value: ifOtnOtuRxSignalStatus
-                    num_oid: '.1.3.6.1.4.1.8708.2.50.2.2.1.1.5.{{ $index }}'
-                    descr: 'OTN Rx Signal {{ $ifOtnOtuName }}'
-                    group: OTN Signal States
-                    entPhysicalIndex: 'otn-{{ $index }}'
-                    state_name: OTNRxSignalStatus
-                    states:
-                        - { descr: down, graph: 0, value: 1, generic: 2 }
-                        - { descr: degraded, graph: 0, value: 2, generic: 2 }
-                        - { descr: ok, graph: 0, value: 3, generic: 0 }   
 
                 -
                     oid: ifOtnOtuTable
@@ -290,32 +298,6 @@ modules:
                     states:
                         - { descr: alarm, graph: 0, value: 2, generic: 2 }
                         - { descr: ok, graph: 0, value: 1, generic: 0 }   
-
-                -
-                    oid: ifOtnMonSmTable
-                    value: ifOtnMonSmTxSignalStatus
-                    num_oid: '.1.3.6.1.4.1.8708.2.55.2.2.1.1.4.{{ $index }}'
-                    descr: 'OTN Tx Signal {{ $ifOtnMonSmName }}'
-                    group: OTN Signal States
-                    entPhysicalIndex: 'otnmon-{{ $index }}'
-                    state_name: OTNTxMonSignalStatus
-                    states:
-                        - { descr: down, graph: 0, value: 1, generic: 2 }
-                        - { descr: degraded, graph: 0, value: 2, generic: 2 }
-                        - { descr: ok, graph: 0, value: 3, generic: 0 }  
-
-                -
-                    oid: ifOtnMonSmTable
-                    value: ifOtnMonSmRxSignalStatus
-                    num_oid: '.1.3.6.1.4.1.8708.2.55.2.2.1.1.5.{{ $index }}'
-                    descr: 'OTN Rx Signal {{ $ifOtnMonSmName }}'
-                    group: OTN Signal States
-                    entPhysicalIndex: 'otnmon-{{ $index }}'
-                    state_name: OTNRxMonSignalStatus
-                    states:
-                        - { descr: down, graph: 0, value: 1, generic: 2 }
-                        - { descr: degraded, graph: 0, value: 2, generic: 2 }
-                        - { descr: ok, graph: 0, value: 3, generic: 0 }  
 
                 -
                     oid: ifOtnMonSmTable
@@ -359,7 +341,6 @@ modules:
                     num_oid: '.1.3.6.1.4.1.8708.2.4.2.8.1.1.16.{{ $index }}'
                     descr: 'WDM Channel Status {{ $wdmCtrlChannelName }}'
                     group: WDM Channel States
-                    entPhysicalIndex: 'wdm-{{ $index }}'
                     state_name: WDMChannelStatus
                     states:
                         - { descr: initial, graph: 0, value: 1, generic: 3 }
@@ -374,7 +355,23 @@ modules:
                             oid: wdmCtrlChannelAdminStatus
                             op: '='
                             value: 1
-                          
+
+                -
+                    oid: wdmCtrlChannelTable
+                    value: wdmCtrlChannelLossOfSignal
+                    num_oid: '.1.3.6.1.4.1.8708.2.4.2.8.1.1.22.{{ $index }}'
+                    descr: 'WDM Channel LoS {{ $wdmCtrlChannelName }}'
+                    group: WDM Channel States
+                    state_name: WDMChannelLoSStatus
+                    states:
+                        - { descr: alarm, graph: 0, value: 2, generic: 2 }
+                        - { descr: ok, graph: 0, value: 1, generic: 0 }  
+                    skip_values:
+                        -
+                            oid: wdmCtrlChannelAdminStatus
+                            op: '='
+                            value: 1   
+
                 -
                     oid: ifBasicAdminTable
                     value: ifBasicAdminOperStatus
@@ -391,7 +388,24 @@ modules:
                         -
                             oid: ifBasicAdminAdminStatus
                             op: '='
-                            value: 1                        
+                            value: 1      
+
+                -
+                    oid: dcnIfTable
+                    value: dcnIfOperStatus
+                    num_oid: '.1.3.6.1.4.1.8708.2.20.2.2.1.1.13.{{ $index }}'
+                    descr: '{{ $dcnIfName }} - {{ $dcnIfDescr }}'
+                    group: DCN Port States
+                    state_name: DCNPortState
+                    states:
+                        - { descr: notPresent, graph: 0, value: 1, generic: 0 }
+                        - { descr: down, graph: 0, value: 2, generic: 2 }
+                        - { descr: up, graph: 0, value: 3, generic: 0 }  
+                    skip_values:
+                        -
+                            oid: dcnIfAdminStatus
+                            op: '='
+                            value: 1                                                
 
 
         temperature:
@@ -435,7 +449,9 @@ modules:
                     descr: 'Laser Temperature {{ $ifPhysicalTrxName }}'
                     group: Laser Temperature
                     entPhysicalIndex: 'laser-{{ $index }}' 
-                    skip_values: [2147483646, 2147483647, -2147483648]                        
+                    skip_values: [2147483646, 2147483647, -2147483648]        
+
+                                
 
 
         dbm:
