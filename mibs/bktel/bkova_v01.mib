@@ -1,0 +1,967 @@
+--- ****************************************************************************
+-- *
+-- * Description:   Implements definitions for the OvaV01-modul
+-- *                (Optical Amplifier [old type] with design release V01)
+-- *
+-- * Copyright 2003 by BKtel communications GmbH
+-- *
+-- *     V.0.1 07.05.03  M. Heldmann    first draft
+-- *     V.0.2 23.07.03  M. Heldmann    added descriptions for the states
+-- *     V.0.3 04.10.06  M. Heldmann    NESlotWriteValue expanded due to new 2G6 platform needs
+-- *     V.0.4 29.05.08  M. Heldmann    renamed threshold parameters in xxxxMeasuringValuesTable
+-- *     V.0.5 11.07.13  M. Heldmann    adjusted syntax of "CommonEntry" to remove MIB compiler warnings
+-- *     V.0.6 05.09.14  M. Heldmann    changed CommonModuleWidth and ConfigNESlotWrite STATUS to optional
+-- ****************************************************************************
+
+BKTEL-HFC862-OVA-V01-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        experimental, enterprises, TimeTicks, IpAddress, Counter
+                 FROM RFC1155-SMI
+    OBJECT-TYPE
+                 FROM RFC-1212
+        TRAP-TYPE
+                 FROM RFC-1215
+        modules, DisplayString, TruthValue, PerceivedSeverityValue, NESlotValue, ModuleWidthValue
+                 FROM   BKTEL-HFC862-BASE-MIB
+    ;
+
+    ovaV01                 OBJECT IDENTIFIER ::= { modules 104 }
+    ovaV01Common           OBJECT IDENTIFIER ::= { ovaV01 1 }
+    ovaV01States           OBJECT IDENTIFIER ::= { ovaV01 2 }
+    ovaV01Configuration    OBJECT IDENTIFIER ::= { ovaV01 3 }
+    ovaV01Control          OBJECT IDENTIFIER ::= { ovaV01 4 }
+    ovaV01MeasuringValues  OBJECT IDENTIFIER ::= { ovaV01 5 }
+    ovaV01Display          OBJECT IDENTIFIER ::= { ovaV01 6 }
+
+
+--
+-- Type definitions
+--
+
+
+        RegulationMode ::= INTEGER
+            {
+            regModeConstantOutputPower(1),
+            regModeConstantGain(2)
+            }
+
+        NESlotWriteValue ::= INTEGER (-1..99)
+
+
+--*****************************************************************************************
+-- OVA ( Optical Amplifier with design release V01 )
+
+--*****************************************************************************************
+-- ovaV01Common group
+
+    ovaV01CommonNumberOfModules OBJECT-TYPE
+        SYNTAX  INTEGER(0..50)
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Number of modules in table."
+  ::= { ovaV01Common 1 }
+
+    ovaV01CommonTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OvaV01CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "The table contains all modules of the OVA-type in the NE"
+  ::= { ovaV01Common 2 }
+
+-- table of states entry(ro/rw)
+
+    ovaV01CommonEntry OBJECT-TYPE
+        SYNTAX OvaV01CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { ovaV01NESlot }
+  ::= { ovaV01CommonTable 1 }
+
+-- the structure of the entry
+
+    OvaV01CommonEntry ::= SEQUENCE
+    {
+        ovaV01NESlot                      NESlotValue,
+        ovaV01CommonType                  DisplayString,
+        ovaV01CommonDescr                 DisplayString,
+        ovaV01CommonFirmwareId            DisplayString,
+        ovaV01CommonModuleWidth           ModuleWidthValue
+    }
+
+    ovaV01NESlot OBJECT-TYPE
+        SYNTAX  NESlotValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The slot number of the chassis for which this
+        entry contains management information."
+    ::= { ovaV01CommonEntry 1 }
+
+    ovaV01CommonType OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE(0..32))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The type of physical module. modSlotEmpty indicates
+         an empty slot.  A Value of modSlotUnknown indicates
+         that the type of module is unknown."
+    ::= { ovaV01CommonEntry 2 }
+
+    ovaV01CommonDescr OBJECT-TYPE
+        SYNTAX  DisplayString
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+        "A textual description of the module.
+        If not available, this Value should be
+        set to a zero length string."
+    ::= { ovaV01CommonEntry 3 }
+
+    ovaV01CommonFirmwareId OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..32))
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The firmware Id of the module."
+    ::= { ovaV01CommonEntry 4 }
+
+    ovaV01CommonModuleWidth OBJECT-TYPE
+        SYNTAX ModuleWidthValue
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The width of the module in multiples of slots (1, 2, ...)"
+    ::= {  ovaV01CommonEntry 5  }
+
+--*****************************************************************************************
+-- ovaV01MeasuringValues group
+
+-- table of measuring Values
+
+    ovaV01MeasuringValuesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OvaV01MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+   ::= { ovaV01MeasuringValues 1 }
+
+-- table of measuring Values entry
+
+    ovaV01MeasuringValuesEntry OBJECT-TYPE
+        SYNTAX OvaV01MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { ovaV01NESlot }
+  ::= { ovaV01MeasuringValuesTable 1 }
+
+--  the structure of the entry
+
+    OvaV01MeasuringValuesEntry ::= SEQUENCE
+    {
+        ovaV01InputPowerLoLo              INTEGER,
+        ovaV01InputPowerLo                INTEGER,
+        ovaV01InputPowerValue             INTEGER,
+        ovaV01InputPowerHi                INTEGER,
+        ovaV01InputPowerHiHi              INTEGER,
+
+        ovaV01OutputPowerLoLo             INTEGER,
+        ovaV01OutputPowerLo               INTEGER,
+        ovaV01OutputPowerValue            INTEGER,
+        ovaV01OutputPowerHi               INTEGER,
+        ovaV01OutputPowerHiHi             INTEGER,
+
+        ovaV01GainLoLo                    INTEGER,
+        ovaV01GainLo                      INTEGER,
+        ovaV01GainValue                   INTEGER,
+        ovaV01GainHi                      INTEGER,
+        ovaV01GainHiHi                    INTEGER,
+
+        ovaV01Laser1CurrentRelLoLo        INTEGER,
+        ovaV01Laser1CurrentRelLo          INTEGER,
+        ovaV01Laser1CurrentRelValue       INTEGER,
+        ovaV01Laser1CurrentRelHi          INTEGER,
+        ovaV01Laser1CurrentRelHiHi        INTEGER,
+
+        ovaV01Laser1TecRelLoLo            INTEGER,
+        ovaV01Laser1TecRelLo              INTEGER,
+        ovaV01Laser1TecRelValue           INTEGER,
+        ovaV01Laser1TecRelHi              INTEGER,
+        ovaV01Laser1TecRelHiHi            INTEGER,
+
+        ovaV01Laser1TemperatureLoLo       INTEGER,
+        ovaV01Laser1TemperatureLo         INTEGER,
+        ovaV01Laser1TemperatureValue      INTEGER,
+        ovaV01Laser1TemperatureHi         INTEGER,
+        ovaV01Laser1TemperatureHiHi       INTEGER,
+
+        ovaV01Laser2CurrentRelLoLo        INTEGER,
+        ovaV01Laser2CurrentRelLo          INTEGER,
+        ovaV01Laser2CurrentRelValue       INTEGER,
+        ovaV01Laser2CurrentRelHi          INTEGER,
+        ovaV01Laser2CurrentRelHiHi        INTEGER,
+
+        ovaV01Laser2TecRelLoLo            INTEGER,
+        ovaV01Laser2TecRelLo              INTEGER,
+        ovaV01Laser2TecRelValue           INTEGER,
+        ovaV01Laser2TecRelHi              INTEGER,
+        ovaV01Laser2TecRelHiHi            INTEGER,
+
+        ovaV01Laser2TemperatureLoLo       INTEGER,
+        ovaV01Laser2TemperatureLo         INTEGER,
+        ovaV01Laser2TemperatureValue      INTEGER,
+        ovaV01Laser2TemperatureHi         INTEGER,
+        ovaV01Laser2TemperatureHiHi       INTEGER,
+
+        ovaV01Plus24VLoLo                 INTEGER,
+        ovaV01Plus24VLo                   INTEGER,
+        ovaV01Plus24VValue                INTEGER,
+        ovaV01Plus24VHi                   INTEGER,
+        ovaV01Plus24VHiHi                 INTEGER,
+
+        ovaV01TemperatureLoLo             INTEGER,
+        ovaV01TemperatureLo               INTEGER,
+        ovaV01TemperatureValue            INTEGER,
+        ovaV01TemperatureHi               INTEGER,
+        ovaV01TemperatureHiHi             INTEGER
+    }
+
+-- *****
+    ovaV01InputPowerLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power low alarm threshold in steps of 0.1dBm."
+    ::= { ovaV01MeasuringValuesEntry 1 }
+
+    ovaV01InputPowerLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power low warning threshold in steps of 0.1dBm."
+    ::= { ovaV01MeasuringValuesEntry 2 }
+
+    ovaV01InputPowerValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power in steps of 0.1dBm."
+    ::= { ovaV01MeasuringValuesEntry 3 }
+
+    ovaV01InputPowerHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power high warning threshold in steps of 0.1dBm."
+    ::= { ovaV01MeasuringValuesEntry 4 }
+
+    ovaV01InputPowerHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power high alarm threshold in steps of 0.1dBm."
+    ::= { ovaV01MeasuringValuesEntry 5 }
+
+-- *****
+    ovaV01OutputPowerLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output power low alarm threshold in steps of 0.1dBm."
+    ::= { ovaV01MeasuringValuesEntry 6 }
+
+    ovaV01OutputPowerLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output power low warning threshold in steps of 0.1dBm."
+    ::= { ovaV01MeasuringValuesEntry 7 }
+
+    ovaV01OutputPowerValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output power in steps of 0.1dBm."
+    ::= { ovaV01MeasuringValuesEntry 8 }
+
+    ovaV01OutputPowerHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output power high warning threshold in steps of 0.1dBm."
+    ::= { ovaV01MeasuringValuesEntry 9 }
+
+    ovaV01OutputPowerHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output power high alarm threshold in steps of 0.1dBm."
+    ::= { ovaV01MeasuringValuesEntry 10 }
+
+-- *****
+    ovaV01GainLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Gain low alarm threshold in steps of 0.1dB."
+    ::= { ovaV01MeasuringValuesEntry 11 }
+
+    ovaV01GainLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Gain low warning threshold in steps of 0.1dB."
+    ::= { ovaV01MeasuringValuesEntry 12 }
+
+    ovaV01GainValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Gain in steps of 0.1dB."
+    ::= { ovaV01MeasuringValuesEntry 13 }
+
+    ovaV01GainHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Gain high warning threshold in steps of 0.1dB."
+    ::= { ovaV01MeasuringValuesEntry 14 }
+
+    ovaV01GainHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Gain high alarm threshold in steps of 0.1dB."
+    ::= { ovaV01MeasuringValuesEntry 15 }
+
+-- *****
+    ovaV01Laser1CurrentRelLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser no.1 current low alarm threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 16 }
+
+    ovaV01Laser1CurrentRelLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser no.1 current low warning threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 17 }
+
+    ovaV01Laser1CurrentRelValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser no.1 current relative to the current at
+                         begin of life in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 18 }
+
+    ovaV01Laser1CurrentRelHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser no.1 current high warning threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 19 }
+
+    ovaV01Laser1CurrentRelHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser no.1 current high alarm threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 20 }
+
+-- *****
+    ovaV01Laser1TecRelLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current of laser no.1 low alarm threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 21 }
+
+    ovaV01Laser1TecRelLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current of laser no.1 low warning threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 22 }
+
+    ovaV01Laser1TecRelValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The thermo-electric-cooler current of laser no.1 relative to
+                         its absolute high alarm threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 23 }
+
+    ovaV01Laser1TecRelHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current of laser no.1 high warning threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 24 }
+
+    ovaV01Laser1TecRelHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current of laser no.1 high alarm threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 25 }
+
+-- *****
+    ovaV01Laser1TemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Temperature of laser no.1 low alarm threshold in steps of 0.1 Celsius Degrees."
+    ::= { ovaV01MeasuringValuesEntry 26 }
+
+    ovaV01Laser1TemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Temperature of laser no.1 low warning threshold in steps of 0.1 Celsius Degrees."
+    ::= { ovaV01MeasuringValuesEntry 27 }
+
+    ovaV01Laser1TemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Temperature of laser no.1 relative to
+                         its absolute high alarm threshold in steps of 0.1 Celsius Degrees."
+    ::= { ovaV01MeasuringValuesEntry 28 }
+
+    ovaV01Laser1TemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Temperature of laser no.1 high warning threshold in steps of 0.1 Celsius Degrees."
+    ::= { ovaV01MeasuringValuesEntry 29 }
+
+    ovaV01Laser1TemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Temperature of laser no.1 high alarm threshold in steps of 0.1 Celsius Degrees."
+    ::= { ovaV01MeasuringValuesEntry 30 }
+
+-- *****
+    ovaV01Laser2CurrentRelLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser no.2 current low alarm threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 31 }
+
+    ovaV01Laser2CurrentRelLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser no.2 current low warning threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 32 }
+
+    ovaV01Laser2CurrentRelValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser no.2 current relative to the current at
+                         begin of life in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 33 }
+
+    ovaV01Laser2CurrentRelHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser no.2 current high warning threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 34 }
+
+    ovaV01Laser2CurrentRelHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser no.2 current high alarm threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 35 }
+
+-- *****
+    ovaV01Laser2TecRelLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current of laser no.2 low alarm threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 36 }
+
+    ovaV01Laser2TecRelLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current of laser no.2 low warning threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 37 }
+
+    ovaV01Laser2TecRelValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The thermo-electric-cooler current of laser no.2 relative to
+                         its absolute high alarm threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 38 }
+
+    ovaV01Laser2TecRelHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current of laser no.2 high warning threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 39 }
+
+    ovaV01Laser2TecRelHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current of laser no.2 high alarm threshold in steps of 0.1%."
+    ::= { ovaV01MeasuringValuesEntry 40 }
+
+-- *****
+    ovaV01Laser2TemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Temperature of laser no.2 low alarm threshold in steps of 0.1 Celsius Degrees."
+    ::= { ovaV01MeasuringValuesEntry 41 }
+
+    ovaV01Laser2TemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Temperature of laser no.2 low warning threshold in steps of 0.1 Celsius Degrees."
+    ::= { ovaV01MeasuringValuesEntry 42 }
+
+    ovaV01Laser2TemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Temperature of laser no.2 relative to
+                         its absolute high alarm threshold in steps of 0.1 Celsius Degrees."
+    ::= { ovaV01MeasuringValuesEntry 43 }
+
+    ovaV01Laser2TemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Temperature of laser no.2 high warning threshold in steps of 0.1 Celsius Degrees."
+    ::= { ovaV01MeasuringValuesEntry 44 }
+
+    ovaV01Laser2TemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Temperature of laser no.2 high alarm threshold in steps of 0.1 Celsius Degrees."
+    ::= { ovaV01MeasuringValuesEntry 45 }
+
+-- *****
+    ovaV01Plus24VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 24V supply voltage low alarm threshold in steps of 0.1 Volts."
+    ::= { ovaV01MeasuringValuesEntry 46 }
+
+    ovaV01Plus24VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 24V supply voltage low warning threshold in steps of 0.1 Volts."
+    ::= { ovaV01MeasuringValuesEntry 47 }
+
+    ovaV01Plus24VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 24V supply voltage in steps of 0.1 Volts."
+    ::= { ovaV01MeasuringValuesEntry 48 }
+
+    ovaV01Plus24VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 24V supply voltage high warning threshold in steps of 0.1 Volts."
+    ::= { ovaV01MeasuringValuesEntry 49 }
+
+    ovaV01Plus24VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 24V supply voltage high alarm threshold in steps of 0.1 Volts."
+    ::= { ovaV01MeasuringValuesEntry 50 }
+
+-- *****
+    ovaV01TemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low alarm threshold in steps of 0.1 celsius degrees."
+    ::= { ovaV01MeasuringValuesEntry 51 }
+
+    ovaV01TemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low warning threshold in steps of 0.1 celsius degrees."
+    ::= { ovaV01MeasuringValuesEntry 52 }
+
+    ovaV01TemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature in steps of 0.1 celsius degrees."
+    ::= { ovaV01MeasuringValuesEntry 53 }
+
+    ovaV01TemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high warning threshold in steps of 0.1 celsius degrees."
+    ::= { ovaV01MeasuringValuesEntry 54 }
+
+    ovaV01TemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high alarm threshold in steps of 0.1 celsius degrees."
+    ::= { ovaV01MeasuringValuesEntry 55 }
+
+
+--*****************************************************************************************
+--  ovaV01States group
+
+-- Note: For every control OId there must be a correspondant alarm OId!
+
+    ovaV01StatesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OvaV01StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { ovaV01States 1 }
+
+-- table of states entry(ro/rw)
+
+    ovaV01StatesEntry OBJECT-TYPE
+        SYNTAX OvaV01StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { ovaV01NESlot }
+    ::= { ovaV01StatesTable 1 }
+
+-- the structure of the entry
+
+    OvaV01StatesEntry ::= SEQUENCE
+    {
+        ovaV01StatesSystem             PerceivedSeverityValue,
+        ovaV01StatesOutputLow          PerceivedSeverityValue,
+        ovaV01StatesOutputHigh         PerceivedSeverityValue,
+        ovaV01StatesInputLow           PerceivedSeverityValue,
+        ovaV01StatesInputHigh          PerceivedSeverityValue,
+        ovaV01StatesLaserAging         PerceivedSeverityValue,
+        ovaV01StatesTecHigh            PerceivedSeverityValue,
+        ovaV01StatesLaserShutdown      PerceivedSeverityValue,
+        ovaV01StatesInitializing       PerceivedSeverityValue,
+        ovaV01StatesBootloader         PerceivedSeverityValue,
+        ovaV01StatesDefective          PerceivedSeverityValue
+    }
+
+    ovaV01StatesSystem OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Internal error occured"
+    ::= { ovaV01StatesEntry 1 }
+
+    ovaV01StatesOutputLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical output power low"
+    ::= { ovaV01StatesEntry 2 }
+
+    ovaV01StatesOutputHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical output power high"
+    ::= { ovaV01StatesEntry 3 }
+
+    ovaV01StatesInputLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power low"
+    ::= { ovaV01StatesEntry 4 }
+
+    ovaV01StatesInputHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power high"
+    ::= { ovaV01StatesEntry 5 }
+
+    ovaV01StatesLaserAging OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser is aging"
+    ::= { ovaV01StatesEntry 6 }
+
+    ovaV01StatesTecHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser cooler limit reached"
+    ::= { ovaV01StatesEntry 7 }
+
+    ovaV01StatesLaserShutdown OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser is shutdown, no optical output"
+    ::= { ovaV01StatesEntry 8 }
+
+    ovaV01StatesInitializing OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The device is initializing"
+    ::= { ovaV01StatesEntry 9 }
+
+    ovaV01StatesBootloader OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION 
+            "The device is running in bootloader mode 
+             without a legal application software." 
+    ::= { ovaV01StatesEntry 10 }
+
+    ovaV01StatesDefective OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The NEC has lost the connection to the device. 
+             Reason may be a removed or defective device.
+             Note that this state is set by the NEC and not 
+             by the device" 
+    ::= { ovaV01StatesEntry 11 }
+
+
+--*****************************************************************************************
+--  ovaV01Control group
+
+  ovaV01ControlTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF OvaV01ControlEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION ""
+  ::= { ovaV01Control 1 }
+
+-- table of control entry(ro/rw)
+
+  ovaV01ControlEntry OBJECT-TYPE
+    SYNTAX OvaV01ControlEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION "Alarms for a module."
+    INDEX { ovaV01NESlot }
+  ::= { ovaV01ControlTable 1 }
+
+-- the structure of the entry
+
+    OvaV01ControlEntry ::= SEQUENCE
+    {
+        ovaV01ControlLaserShutdown                     TruthValue,
+        ovaV01ControlReset                             TruthValue,
+        ovaV01ControlModuleLedBlink                    TruthValue
+    }
+
+    ovaV01ControlLaserShutdown OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Shutdown the laser(s), optical power on/off."
+    ::= { ovaV01ControlEntry 1 }
+
+    ovaV01ControlReset OBJECT-TYPE
+      SYNTAX TruthValue
+      ACCESS read-write
+      STATUS mandatory
+      DESCRIPTION "Reset the module."
+    ::= { ovaV01ControlEntry 2 }
+
+    ovaV01ControlModuleLedBlink OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION   "Writing this variable to true(1) lets the device's 
+        modul LED blink green for 10 seconds. 
+        Writing this variable to false(2) stops blinking at once.
+        This variable always returns false(2) on read requests"
+    ::= { ovaV01ControlEntry 3 }
+
+
+--*****************************************************************************************
+-- ovaV01Configuration group
+
+    ovaV01ConfigurationTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OvaV01ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { ovaV01Configuration 1 }
+
+-- table of configuration entry(ro/rw)
+
+    ovaV01ConfigurationEntry OBJECT-TYPE
+        SYNTAX OvaV01ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { ovaV01NESlot  }
+    ::= { ovaV01ConfigurationTable 1 }
+
+-- the structure of the entry
+
+    OvaV01ConfigurationEntry ::= SEQUENCE
+    {
+        ovaV01ConfigNESlotWrite                       NESlotWriteValue,
+        ovaV01ConfigOutputPwrOrGainAdjust             INTEGER,
+        ovaV01ConfigInputPwrLimitLo                   INTEGER
+    }
+
+    ovaV01ConfigNESlotWrite OBJECT-TYPE
+        SYNTAX NESlotWriteValue
+        ACCESS read-write
+        STATUS optional
+        DESCRIPTION "By writing this variable a slot can be assigned
+            for devices that dont support hardware slot detection.
+            Reading '-1' means that the slot position is NOT writable."
+    ::= { ovaV01ConfigurationEntry 1 }
+
+    ovaV01ConfigOutputPwrOrGainAdjust OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "This variable can be used to adjust the desired output power (or gain) 
+             value in 0.1 dB(m) units.
+             See ovaV01DisplayRegulationMode variable too"
+    ::={ ovaV01ConfigurationEntry 2 }
+
+    ovaV01ConfigInputPwrLimitLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The optical input power low warning limit in 0.1 dBm units"
+    ::={ ovaV01ConfigurationEntry 3 }
+
+
+--*****************************************************************************************
+-- Display group
+
+    ovaV01DisplayTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OvaV01DisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { ovaV01Display 1 }
+
+-- table of configuration entry(ro/rw)
+
+    ovaV01DisplayEntry OBJECT-TYPE
+        SYNTAX OvaV01DisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { ovaV01NESlot  }
+    ::= { ovaV01DisplayTable 1 }
+
+-- the structure of the entry
+
+    OvaV01DisplayEntry ::= SEQUENCE
+    {
+        ovaV01DisplayLaserCount                INTEGER,
+        ovaV01DisplayOutputPwrOrGainAdjustMin  INTEGER,
+        ovaV01DisplayOutputPwrOrGainAdjustMax  INTEGER,
+        ovaV01DisplayOutputPwrOrGainAdjustStep INTEGER,
+        ovaV01DisplayLaser1PumpPowerRel        INTEGER,
+        ovaV01DisplayLaser2PumpPowerRel        INTEGER,
+        ovaV01DisplayRegulationMode            RegulationMode
+    }
+
+    ovaV01DisplayLaserCount OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "The number of lasers used by this optical amplifier"
+    ::={ ovaV01DisplayEntry 1 }
+
+    ovaV01DisplayOutputPwrOrGainAdjustMin OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "The maximum adjustable output power (or gain) value in 0.1 dB(m) units.
+             See ovaV01DisplayRegulationMode variable too"
+    ::={ ovaV01DisplayEntry 2 }
+
+    ovaV01DisplayOutputPwrOrGainAdjustMax OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "The minimum adjustable output power (or gain) value in 0.1 dB(m) units.
+             See ovaV01DisplayRegulationMode variable too"
+    ::={ ovaV01DisplayEntry 3 }
+
+    ovaV01DisplayOutputPwrOrGainAdjustStep OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "The stepsize that can be used to adjust the output power (or gain)
+             value in 0.1 dB units.
+             See ovaV01DisplayRegulationMode variable too"
+    ::={ ovaV01DisplayEntry 4 }
+
+    ovaV01DisplayLaser1PumpPowerRel OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "The pump power of laser no.1 in percent"
+    ::={ ovaV01DisplayEntry 5 }
+
+    ovaV01DisplayLaser2PumpPowerRel OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "The pump power of laser no.2 in percent"
+    ::={ ovaV01DisplayEntry 6 }
+
+    ovaV01DisplayRegulationMode OBJECT-TYPE
+        SYNTAX  RegulationMode
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "The regulation mode of the device.
+             - regModeConstantOutputPower(1):
+               If the device runs in constant output power mode, then all *OutputPwrOrGain*
+               variables are interpreted as 'Output Power' specific.
+             - regModeConstantGain(2):
+               If the device runs in constant gain mode, then all *OutputPwrOrGain*
+               variables are interpreted as 'Gain' specific."
+    ::={ ovaV01DisplayEntry 7 }
+
+
+--*****************************************************************************************
+END

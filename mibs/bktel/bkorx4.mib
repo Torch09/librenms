@@ -1,0 +1,1579 @@
+--- ****************************************************************************
+-- *
+-- * Description:   Implements definitions for the Orx4-modul
+-- *                Optical Receiver with a maximum number of four optical inputs
+-- *
+-- * Copyright 2006 by BKtel communications GmbH
+-- *
+-- *
+-- *     V.0.1 03.04.2006  M. Heldmann    first draft
+-- *     V.0.2 15.08.2006  M. Heldmann    some voltages changed, some removed
+-- *     V.0.3 04.10.2006  M. Heldmann    NESlotWriteValue expanded due to new 2G6 platform needs
+-- *     V.0.4 23.02.2007  M. Heldmann    added some parameters for remote device management over pilot PSK, see ..PskRemote..
+-- *                                      renamed orx4ConfigLineCodeUsage to orx4ConfigPilotPskUsage
+-- *                                      renamed and expanded LineCodeUsageValue to PilotPskUsageValue
+-- *                                      expanded description of orx4ConfigLineCodeMismatchAction
+-- *                                      expanded description of orx4StatesLineCodeNumber_Chn
+-- *     V.0.5 04.04.2011  M. Heldmann    expanded TestOutputValue to be able to isolate the testpoint
+-- *     V.0.6 11.07.2013  M. Heldmann    adjusted syntax of "CommonEntry" to remove MIB compiler warnings
+-- *     V.0.7 05.09.2014  M. Heldmann    changed CommonModuleWidth and ConfigNESlotWrite STATUS to optional
+-- ****************************************************************************
+
+BKTEL-HFC862-ORX4-V01-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        experimental, enterprises, TimeTicks, IpAddress, Counter
+                 FROM RFC1155-SMI
+    OBJECT-TYPE
+                 FROM RFC-1212
+        TRAP-TYPE
+                 FROM RFC-1215
+        modules, DisplayString, TruthValue, PerceivedSeverityValue, NESlotValue, ModuleWidthValue
+                 FROM   BKTEL-HFC862-BASE-MIB
+    ;
+
+    orx4                 OBJECT IDENTIFIER ::= { modules 113 }
+    orx4Common           OBJECT IDENTIFIER ::= { orx4 1 }
+    orx4States           OBJECT IDENTIFIER ::= { orx4 2 }
+    orx4Configuration    OBJECT IDENTIFIER ::= { orx4 3 }
+    orx4Control          OBJECT IDENTIFIER ::= { orx4 4 }
+    orx4MeasuringValues  OBJECT IDENTIFIER ::= { orx4 5 }
+    orx4Display          OBJECT IDENTIFIER ::= { orx4 6 }
+
+
+--
+-- Type definitions
+--
+
+    TestOutputValue ::= INTEGER
+        {
+        testOutputIsolate(0),
+        testOutputChannel_1(1),
+        testOutputChannel_2(2),
+        testOutputChannel_3(3),
+        testOutputChannel_4(4)
+        }
+
+    PilotPskUsageValue ::= INTEGER
+        {
+        enableLinecodes(1),
+        disableAll(2),
+        enableLinecodesAndRemoteStatus(3)
+        }
+
+    LineCodeMismatchActionValue ::= INTEGER
+        {
+        noLineCodeWarningOrNotify(1),
+        notifyOnCodeMismatch(2),
+        warningOnCodeMismatch(3)
+        }
+
+    RedundancySettingValue ::= INTEGER
+        {
+        noRedundancy(1),
+        deviceRedundancy(2),
+        channelRedundancy(3),
+        channelRedundancyCh1Ch2Only(4)
+        }
+
+    OutputOnChannelRedundancyValue ::= INTEGER
+        {
+        separateOutputs(1),
+        commonOutput(2)
+        }
+
+    DeviceRedundancyDetectionValue ::= INTEGER
+        {
+        automaticBySlotNumber(1),
+        manualBySetup(2)
+        }
+
+    DeviceNominalRedundantValue ::= INTEGER
+        {
+        nominalDevice(1),
+        redundantDevice(2)
+        }
+
+    ActivityMode ::= INTEGER
+        {
+        alwaysActive(1),
+        forceSleepOrStandby(2),
+        automatic(3),
+        deactivate(4)
+        }
+
+    InactivityBehaviourValue ::= INTEGER
+        {
+        sleepWhenInactive(1),
+        hotStandbyWhenInactive(2)
+        }
+
+    RegulationModeValue ::= INTEGER
+        {
+        noRegulationManualSetup(1),
+        inputPowerBasedRegulation(2),
+        pilotBasedRegulation(3)
+        }
+
+    InputWavelengthValue ::= INTEGER
+        {
+        wavelength_1310nm(1),
+        wavelength_1550nm(2)
+        }
+
+    RfOutputLevelRangeMode ::= INTEGER
+        {
+        defaultUsingDeviceSpecs(1),
+        extendedInputPowerBased(2)
+        }
+
+    LineCodeNumberValue ::= INTEGER (0..65535)
+
+    ActivityValue ::= INTEGER
+        {
+        active(1),
+        sleeping(2),
+        standby(3),
+        deactivated(4),
+        notAssembled(5)
+        }
+
+    NESlotWriteValue ::= INTEGER (-1..99)
+
+
+-- MibCompiler defs --
+-- $idx$: _Chn
+-- MibCompiler defs --
+
+
+--*****************************************************************************************
+-- ORX4 ( Optical Receiver with a maximum number of four optical inputs )
+
+
+--*****************************************************************************************
+-- orx4Common group
+
+    orx4CommonNumberOfModules OBJECT-TYPE
+        SYNTAX  INTEGER(0..50)
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Number of modules in table."
+  ::= { orx4Common 1 }
+
+    orx4CommonTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Orx4CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "The table contains all modules of the ORX4-type in the NE"
+  ::= { orx4Common 2 }
+
+-- table of states entry(ro/rw)
+
+    orx4CommonEntry OBJECT-TYPE
+        SYNTAX Orx4CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { orx4NESlot }
+  ::= { orx4CommonTable 1 }
+
+-- the structure of the entry
+
+    Orx4CommonEntry ::= SEQUENCE
+    {
+        orx4NESlot                      NESlotValue,
+        orx4CommonType                  DisplayString,
+        orx4CommonDescr                 DisplayString,
+        orx4CommonFirmwareId            DisplayString,
+        orx4CommonModuleWidth           ModuleWidthValue
+    }
+
+    orx4NESlot OBJECT-TYPE
+        SYNTAX  NESlotValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The slot number of the chassis for which this
+        entry contains management information."
+    ::= { orx4CommonEntry 1 }
+
+    orx4CommonType OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE(0..32))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The type of physical module. modSlotEmpty indicates
+         an empty slot.  A Value of modSlotUnknown indicates
+         that the type of module is unknown."
+    ::= { orx4CommonEntry 2 }
+
+    orx4CommonDescr OBJECT-TYPE
+        SYNTAX  DisplayString
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+        "A textual description of the module.
+        If not available, this Value should be
+        set to a zero length string."
+    ::= { orx4CommonEntry 3 }
+
+    orx4CommonFirmwareId OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..32))
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The firmware Id of the module."
+    ::= { orx4CommonEntry 4 }
+
+    orx4CommonModuleWidth OBJECT-TYPE
+        SYNTAX ModuleWidthValue
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The width of the module in multiples of slots (1, 2, ...)"
+    ::= { orx4CommonEntry 5 }
+
+--*****************************************************************************************
+-- orx4MeasuringValues group
+
+-- table of measuring Values
+
+    orx4MeasuringValuesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Orx4MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+   ::= { orx4MeasuringValues 1 }
+
+-- table of measuring Values entry
+
+    orx4MeasuringValuesEntry OBJECT-TYPE
+        SYNTAX Orx4MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { orx4NESlot }
+  ::= { orx4MeasuringValuesTable 1 }
+
+--  the structure of the entry
+
+    Orx4MeasuringValuesEntry ::= SEQUENCE
+    {
+        orx4TemperatureLoLo             INTEGER,
+        orx4TemperatureLo               INTEGER,
+        orx4TemperatureValue            INTEGER,
+        orx4TemperatureHi               INTEGER,
+        orx4TemperatureHiHi             INTEGER,
+
+        orx4InputPowerLoLo_Chn1         INTEGER,
+        orx4InputPowerLo_Chn1           INTEGER,
+        orx4InputPowerValue_Chn1        INTEGER,
+        orx4InputPowerHi_Chn1           INTEGER,
+        orx4InputPowerHiHi_Chn1         INTEGER,
+
+        orx4InputPowerLoLo_Chn2         INTEGER,
+        orx4InputPowerLo_Chn2           INTEGER,
+        orx4InputPowerValue_Chn2        INTEGER,
+        orx4InputPowerHi_Chn2           INTEGER,
+        orx4InputPowerHiHi_Chn2         INTEGER,
+
+        orx4InputPowerLoLo_Chn3         INTEGER,
+        orx4InputPowerLo_Chn3           INTEGER,
+        orx4InputPowerValue_Chn3        INTEGER,
+        orx4InputPowerHi_Chn3           INTEGER,
+        orx4InputPowerHiHi_Chn3         INTEGER,
+
+        orx4InputPowerLoLo_Chn4         INTEGER,
+        orx4InputPowerLo_Chn4           INTEGER,
+        orx4InputPowerValue_Chn4        INTEGER,
+        orx4InputPowerHi_Chn4           INTEGER,
+        orx4InputPowerHiHi_Chn4         INTEGER,
+
+        orx4Plus24VLoLo                 INTEGER,
+        orx4Plus24VLo                   INTEGER,
+        orx4Plus24VValue                INTEGER,
+        orx4Plus24VHi                   INTEGER,
+        orx4Plus24VHiHi                 INTEGER,
+
+        orx4Plus5VLoLo                  INTEGER,
+        orx4Plus5VLo                    INTEGER,
+        orx4Plus5VValue                 INTEGER,
+        orx4Plus5VHi                    INTEGER,
+        orx4Plus5VHiHi                  INTEGER,
+
+        orx4Plus3p3VLoLo                INTEGER,
+        orx4Plus3p3VLo                  INTEGER,
+        orx4Plus3p3VValue               INTEGER,
+        orx4Plus3p3VHi                  INTEGER,
+        orx4Plus3p3VHiHi                INTEGER,
+
+        orx4Plus5p5VLoLo                INTEGER,
+        orx4Plus5p5VLo                  INTEGER,
+        orx4Plus5p5VValue               INTEGER,
+        orx4Plus5p5VHi                  INTEGER,
+        orx4Plus5p5VHiHi                INTEGER
+    }
+
+-- *****
+    orx4TemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature low alarm threshold in 0.1 celsius degrees."
+    ::= { orx4MeasuringValuesEntry 1 }
+
+    orx4TemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature low warning threshold in 0.1 celsius degrees."
+    ::= { orx4MeasuringValuesEntry 2 }
+
+    orx4TemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature in 0.1 celsius degrees."
+    ::= { orx4MeasuringValuesEntry 3 }
+
+    orx4TemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature high warning threshold in 0.1 celsius degrees."
+    ::= { orx4MeasuringValuesEntry 4 }
+
+    orx4TemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature high alarm threshold in 0.1 celsius degrees."
+    ::= { orx4MeasuringValuesEntry 5 }
+
+-- *****
+    orx4InputPowerLoLo_Chn1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low alarm threshold in steps of 0.1dBm (Channel #1)."
+    ::= { orx4MeasuringValuesEntry 6 }
+
+    orx4InputPowerLo_Chn1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low warning threshold in steps of 0.1dBm (Channel #1)."
+    ::= { orx4MeasuringValuesEntry 7 }
+
+    orx4InputPowerValue_Chn1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power in steps of 0.1dBm (Channel #1)."
+    ::= { orx4MeasuringValuesEntry 8 }
+
+    orx4InputPowerHi_Chn1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high warning threshold in steps of 0.1dBm (Channel #1)."
+    ::= { orx4MeasuringValuesEntry 9 }
+
+    orx4InputPowerHiHi_Chn1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high alarm threshold in steps of 0.1dBm (Channel #1)."
+    ::= { orx4MeasuringValuesEntry 10 }
+
+-- *****
+    orx4InputPowerLoLo_Chn2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low alarm threshold in steps of 0.1dBm (Channel #2)."
+    ::= { orx4MeasuringValuesEntry 11 }
+
+    orx4InputPowerLo_Chn2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low warning threshold in steps of 0.1dBm (Channel #2)."
+    ::= { orx4MeasuringValuesEntry 12 }
+
+    orx4InputPowerValue_Chn2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power in steps of 0.1dBm (Channel #2)."
+    ::= { orx4MeasuringValuesEntry 13 }
+
+    orx4InputPowerHi_Chn2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high warning threshold in steps of 0.1dBm (Channel #2)."
+    ::= { orx4MeasuringValuesEntry 14 }
+
+    orx4InputPowerHiHi_Chn2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high alarm threshold in steps of 0.1dBm (Channel #2)."
+    ::= { orx4MeasuringValuesEntry 15 }
+
+-- *****
+    orx4InputPowerLoLo_Chn3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low alarm threshold in steps of 0.1dBm (Channel #3)."
+    ::= { orx4MeasuringValuesEntry 16 }
+
+    orx4InputPowerLo_Chn3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low warning threshold in steps of 0.1dBm (Channel #3)."
+    ::= { orx4MeasuringValuesEntry 17 }
+
+    orx4InputPowerValue_Chn3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power in steps of 0.1dBm (Channel #3)."
+    ::= { orx4MeasuringValuesEntry 18 }
+
+    orx4InputPowerHi_Chn3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high warning threshold in steps of 0.1dBm (Channel #3)."
+    ::= { orx4MeasuringValuesEntry 19 }
+
+    orx4InputPowerHiHi_Chn3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high alarm threshold in steps of 0.1dBm (Channel #3)."
+    ::= { orx4MeasuringValuesEntry 20 }
+
+-- *****
+    orx4InputPowerLoLo_Chn4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low alarm threshold in steps of 0.1dBm (Channel #4)."
+    ::= { orx4MeasuringValuesEntry 21 }
+
+    orx4InputPowerLo_Chn4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low warning threshold in steps of 0.1dBm (Channel #4)."
+    ::= { orx4MeasuringValuesEntry 22 }
+
+    orx4InputPowerValue_Chn4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power in steps of 0.1dBm (Channel #4)."
+    ::= { orx4MeasuringValuesEntry 23 }
+
+    orx4InputPowerHi_Chn4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high warning threshold in steps of 0.1dBm (Channel #4)."
+    ::= { orx4MeasuringValuesEntry 24 }
+
+    orx4InputPowerHiHi_Chn4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high alarm threshold in steps of 0.1dBm (Channel #4)."
+    ::= { orx4MeasuringValuesEntry 25 }
+
+-- *****
+    orx4Plus24VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V voltage low alarm threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 26 }
+
+    orx4Plus24VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V voltage low warning threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 27 }
+
+    orx4Plus24VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V voltage in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 28 }
+
+    orx4Plus24VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V voltage high warning threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 29 }
+
+    orx4Plus24VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V voltage high alarm threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 30 }
+
+-- *****
+    orx4Plus5VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5V voltage low alarm threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 31 }
+
+    orx4Plus5VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5V voltage low warning threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 32 }
+
+    orx4Plus5VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5V voltage in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 33 }
+
+    orx4Plus5VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5V voltage high warning threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 34 }
+
+    orx4Plus5VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5V voltage high alarm threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 35 }
+
+-- *****
+    orx4Plus3p3VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +3.3V voltage low alarm threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 36 }
+
+    orx4Plus3p3VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +3.3V voltage low warning threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 37 }
+
+    orx4Plus3p3VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +3.3V voltage in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 38 }
+
+    orx4Plus3p3VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +3.3V voltage high warning threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 39 }
+
+    orx4Plus3p3VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +3.3V voltage high alarm threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 40 }
+
+-- *****
+    orx4Plus5p5VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5.5V voltage low alarm threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 41 }
+
+    orx4Plus5p5VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5.5V voltage low warning threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 42 }
+
+    orx4Plus5p5VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5.5V voltage in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 43 }
+
+    orx4Plus5p5VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5.5V voltage high warning threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 44 }
+
+    orx4Plus5p5VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5.5V voltage high alarm threshold in steps of 0.1V."
+    ::= { orx4MeasuringValuesEntry 45 }
+
+--*****************************************************************************************
+--  orx4States group
+
+-- Note: For every control OId there must be a correspondant alarm OId!
+
+    orx4StatesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Orx4StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { orx4States 1 }
+
+-- table of states entry(ro/rw)
+
+    orx4StatesEntry OBJECT-TYPE
+        SYNTAX Orx4StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { orx4NESlot }
+    ::= { orx4StatesTable 1 }
+
+-- the structure of the entry
+
+    Orx4StatesEntry ::= SEQUENCE
+    {
+        orx4StatesBootloader           PerceivedSeverityValue,
+        orx4StatesCommLoss             PerceivedSeverityValue,
+        orx4StatesTemperatureLow       PerceivedSeverityValue,
+        orx4StatesTemperatureHigh      PerceivedSeverityValue,
+        orx4StatesInputLow_Chn1        PerceivedSeverityValue,
+        orx4StatesInputHigh_Chn1       PerceivedSeverityValue,
+        orx4StatesInputLow_Chn2        PerceivedSeverityValue,
+        orx4StatesInputHigh_Chn2       PerceivedSeverityValue,
+        orx4StatesInputLow_Chn3        PerceivedSeverityValue,
+        orx4StatesInputHigh_Chn3       PerceivedSeverityValue,
+        orx4StatesInputLow_Chn4        PerceivedSeverityValue,
+        orx4StatesInputHigh_Chn4       PerceivedSeverityValue,
+        orx4StatesPilotSignal_Chn1     PerceivedSeverityValue,
+        orx4StatesPilotSignal_Chn2     PerceivedSeverityValue,
+        orx4StatesPilotSignal_Chn3     PerceivedSeverityValue,
+        orx4StatesPilotSignal_Chn4     PerceivedSeverityValue,
+        orx4StatesRegulatorLimit_Chn1  PerceivedSeverityValue,
+        orx4StatesRegulatorLimit_Chn2  PerceivedSeverityValue,
+        orx4StatesRegulatorLimit_Chn3  PerceivedSeverityValue,
+        orx4StatesRegulatorLimit_Chn4  PerceivedSeverityValue,
+        orx4StatesLineCodeNumber_Chn1  PerceivedSeverityValue,
+        orx4StatesLineCodeNumber_Chn2  PerceivedSeverityValue,
+        orx4StatesLineCodeNumber_Chn3  PerceivedSeverityValue,
+        orx4StatesLineCodeNumber_Chn4  PerceivedSeverityValue,
+        orx4StatesPlus24VLow           PerceivedSeverityValue,
+        orx4StatesPlus24VHigh          PerceivedSeverityValue,
+        orx4StatesInternalVoltageLow   PerceivedSeverityValue,
+        orx4StatesInternalVoltageHigh  PerceivedSeverityValue,
+        orx4StatesSlotDetection        PerceivedSeverityValue,
+        orx4StatesPskRemoteState_Chn1  PerceivedSeverityValue,
+        orx4StatesPskRemoteState_Chn2  PerceivedSeverityValue,
+        orx4StatesPskRemoteState_Chn3  PerceivedSeverityValue,
+        orx4StatesPskRemoteState_Chn4  PerceivedSeverityValue
+    }
+
+    orx4StatesBootloader OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The device is running in bootloader mode
+             without a legal application software."
+    ::= { orx4StatesEntry 1 }
+
+    orx4StatesCommLoss OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The NEC has lost the connection to the device.
+             Reason may be a removed or defective device.
+             Note that this state is set by the NEC and not
+             by the device"
+    ::= { orx4StatesEntry 2 }
+
+    orx4StatesTemperatureLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature low"
+    ::= { orx4StatesEntry 3 }
+
+    orx4StatesTemperatureHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature high"
+    ::= { orx4StatesEntry 4 }
+
+    orx4StatesInputLow_Chn1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (input channel 1) low"
+    ::= { orx4StatesEntry 5 }
+
+    orx4StatesInputHigh_Chn1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (input channel 1) high"
+    ::= { orx4StatesEntry 6 }
+
+    orx4StatesInputLow_Chn2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (input channel 2) low"
+    ::= { orx4StatesEntry 7 }
+
+    orx4StatesInputHigh_Chn2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (input channel 2) high"
+    ::= { orx4StatesEntry 8 }
+
+    orx4StatesInputLow_Chn3 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (input channel 3) low"
+    ::= { orx4StatesEntry 9 }
+
+    orx4StatesInputHigh_Chn3 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (input channel 3) high"
+    ::= { orx4StatesEntry 10 }
+
+    orx4StatesInputLow_Chn4 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (input channel 4) low"
+    ::= { orx4StatesEntry 11 }
+
+    orx4StatesInputHigh_Chn4 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (input channel 4) high"
+    ::= { orx4StatesEntry 12 }
+
+    orx4StatesPilotSignal_Chn1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Pilot signal failure (input channel 1)"
+    ::= { orx4StatesEntry 13 }
+
+    orx4StatesPilotSignal_Chn2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Pilot signal failure (input channel 2)"
+    ::= { orx4StatesEntry 14 }
+
+    orx4StatesPilotSignal_Chn3 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Pilot signal failure (input channel 3)"
+    ::= { orx4StatesEntry 15 }
+
+    orx4StatesPilotSignal_Chn4 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Pilot signal failure (input channel 4)"
+    ::= { orx4StatesEntry 16 }
+
+    orx4StatesRegulatorLimit_Chn1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input regulator limit reached (input channel 1)"
+    ::= { orx4StatesEntry 17 }
+
+    orx4StatesRegulatorLimit_Chn2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input regulator limit reached (input channel 2)"
+    ::= { orx4StatesEntry 18 }
+
+    orx4StatesRegulatorLimit_Chn3 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input regulator limit reached (input channel 3)"
+    ::= { orx4StatesEntry 19 }
+
+    orx4StatesRegulatorLimit_Chn4 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input regulator limit reached (input channel 4)"
+    ::= { orx4StatesEntry 20 }
+
+    orx4StatesLineCodeNumber_Chn1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Linecode number mismatch or PSK remote signal loss (input channel 1)"
+    ::= { orx4StatesEntry 21 }
+
+    orx4StatesLineCodeNumber_Chn2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Linecode number mismatch or PSK remote signal loss (input channel 2)"
+    ::= { orx4StatesEntry 22 }
+
+    orx4StatesLineCodeNumber_Chn3 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Linecode number mismatch or PSK remote signal loss (input channel 3)"
+    ::= { orx4StatesEntry 23 }
+
+    orx4StatesLineCodeNumber_Chn4 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Linecode number mismatch or PSK remote signal loss (input channel 4)"
+    ::= { orx4StatesEntry 24 }
+
+    orx4StatesPlus24VLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "24 Volt supply low"
+    ::= { orx4StatesEntry 25 }
+
+    orx4StatesPlus24VHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "24 Volt supply high"
+    ::= { orx4StatesEntry 26 }
+
+    orx4StatesInternalVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "An internal voltage too low"
+    ::= { orx4StatesEntry 27 }
+
+    orx4StatesInternalVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "An internal voltage too high"
+    ::= { orx4StatesEntry 28 }
+
+    orx4StatesSlotDetection OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Slot detection not possible"
+    ::= { orx4StatesEntry 29 }
+
+    orx4StatesPskRemoteState_Chn1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "State of remote connected device(s) (input channel 1)
+            Received via the pilot PSK connection from remote transmitter
+            Not supported in all configurations of this device !!"
+    ::= { orx4StatesEntry 30 }
+
+    orx4StatesPskRemoteState_Chn2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "State of remote connected device(s) (input channel 2)
+            Received via the pilot PSK connection from remote transmitter
+            Not supported in all configurations of this device !!"
+    ::= { orx4StatesEntry 31 }
+
+    orx4StatesPskRemoteState_Chn3 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "State of remote connected device(s) (input channel 3)
+            Received via the pilot PSK connection from remote transmitter
+            Not supported in all configurations of this device !!"
+    ::= { orx4StatesEntry 32 }
+
+    orx4StatesPskRemoteState_Chn4 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "State of remote connected device(s) (input channel 4)
+            Received via the pilot PSK connection from remote transmitter
+            Not supported in all configurations of this device !!"
+    ::= { orx4StatesEntry 33 }
+
+--*****************************************************************************************
+--  orx4Control group
+
+  orx4ControlTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF Orx4ControlEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION ""
+  ::= { orx4Control 1 }
+
+-- table of control entry(ro/rw)
+
+  orx4ControlEntry OBJECT-TYPE
+    SYNTAX Orx4ControlEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION "Alarms for a module."
+    INDEX { orx4NESlot }
+  ::= { orx4ControlTable 1 }
+
+-- the structure of the entry
+
+    Orx4ControlEntry ::= SEQUENCE
+    {
+        orx4ControlReset             TruthValue,
+        orx4ControlModuleLedBlink    TruthValue
+    }
+
+    orx4ControlReset OBJECT-TYPE
+      SYNTAX TruthValue
+      ACCESS read-write
+      STATUS mandatory
+      DESCRIPTION "Reset the module."
+    ::= { orx4ControlEntry 1 }
+
+    orx4ControlModuleLedBlink OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION   "Writing this variable to true(1) lets the device's
+        modul LED blink green for 10 seconds.
+        Writing this variable to false(2) storx4 blinking at once.
+        This variable always returns false(2) on read requests"
+    ::= { orx4ControlEntry 2 }
+
+
+--*****************************************************************************************
+-- orx4Configuration group
+
+    orx4ConfigurationTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Orx4ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { orx4Configuration 1 }
+
+-- table of configuration entry(ro/rw)
+
+    orx4ConfigurationEntry OBJECT-TYPE
+        SYNTAX Orx4ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { orx4NESlot  }
+    ::= { orx4ConfigurationTable 1 }
+
+-- the structure of the entry
+
+    Orx4ConfigurationEntry ::= SEQUENCE
+    {
+        orx4ConfigNESlotWrite                    NESlotWriteValue,
+        orx4ConfigTestOutput                     TestOutputValue,
+        orx4ConfigPilotPskUsage                  PilotPskUsageValue,
+        orx4ConfigLineCodeMismatchAction         LineCodeMismatchActionValue,
+        orx4ConfigRedundancySetting              RedundancySettingValue,
+        orx4ConfigOutputOnChannelRedundancy      OutputOnChannelRedundancyValue,
+        orx4ConfigDeviceRedundancyDetection      DeviceRedundancyDetectionValue,
+        orx4ConfigDeviceNominalRedundant         DeviceNominalRedundantValue,
+        orx4ConfigActivateChannel_Chn1           ActivityMode,
+        orx4ConfigActivateChannel_Chn2           ActivityMode,
+        orx4ConfigActivateChannel_Chn3           ActivityMode,
+        orx4ConfigActivateChannel_Chn4           ActivityMode,
+        orx4ConfigInactivityBehaviour_Chn1       InactivityBehaviourValue,
+        orx4ConfigInactivityBehaviour_Chn2       InactivityBehaviourValue,
+        orx4ConfigInactivityBehaviour_Chn3       InactivityBehaviourValue,
+        orx4ConfigInactivityBehaviour_Chn4       InactivityBehaviourValue,
+        orx4ConfigRfOutputLevel_Chn1             INTEGER,
+        orx4ConfigRfOutputLevel_Chn2             INTEGER,
+        orx4ConfigRfOutputLevel_Chn3             INTEGER,
+        orx4ConfigRfOutputLevel_Chn4             INTEGER,
+        orx4ConfigRfAttenuatorManual_Chn1        INTEGER,
+        orx4ConfigRfAttenuatorManual_Chn2        INTEGER,
+        orx4ConfigRfAttenuatorManual_Chn3        INTEGER,
+        orx4ConfigRfAttenuatorManual_Chn4        INTEGER,
+        orx4ConfigRegulationMode_Chn1            RegulationModeValue,
+        orx4ConfigRegulationMode_Chn2            RegulationModeValue,
+        orx4ConfigRegulationMode_Chn3            RegulationModeValue,
+        orx4ConfigRegulationMode_Chn4            RegulationModeValue,
+        orx4ConfigInputWavelength_Chn1           InputWavelengthValue,
+        orx4ConfigInputWavelength_Chn2           InputWavelengthValue,
+        orx4ConfigInputWavelength_Chn3           InputWavelengthValue,
+        orx4ConfigInputWavelength_Chn4           InputWavelengthValue,
+        orx4ConfigExpectedLineCodeNumber_Chn1    LineCodeNumberValue,
+        orx4ConfigExpectedLineCodeNumber_Chn2    LineCodeNumberValue,
+        orx4ConfigExpectedLineCodeNumber_Chn3    LineCodeNumberValue,
+        orx4ConfigExpectedLineCodeNumber_Chn4    LineCodeNumberValue,
+        orx4ConfigRfOutputLevelRangeMode_Chn1    RfOutputLevelRangeMode,
+        orx4ConfigRfOutputLevelRangeMode_Chn2    RfOutputLevelRangeMode,
+        orx4ConfigRfOutputLevelRangeMode_Chn3    RfOutputLevelRangeMode,
+        orx4ConfigRfOutputLevelRangeMode_Chn4    RfOutputLevelRangeMode
+    }
+
+    orx4ConfigNESlotWrite OBJECT-TYPE
+        SYNTAX NESlotWriteValue
+        ACCESS read-write
+        STATUS optional
+        DESCRIPTION "By writing this variable a slot can be assigned
+            for devices that dont support hardware slot detection.
+            Reading '-1' means that the slot position is NOT writable."
+    ::= { orx4ConfigurationEntry 1 }
+
+    orx4ConfigTestOutput OBJECT-TYPE
+        SYNTAX TestOutputValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The rf output channel switched to the test output
+             NOTE: A value of zero (0) isolates the test output"
+    ::= { orx4ConfigurationEntry 2 }
+
+    orx4ConfigPilotPskUsage OBJECT-TYPE
+        SYNTAX PilotPskUsageValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "PSK coding via pilot usage"
+    ::= { orx4ConfigurationEntry 3 }
+
+    orx4ConfigLineCodeMismatchAction OBJECT-TYPE
+        SYNTAX LineCodeMismatchActionValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The action that has to occur on a linecode mismatch
+             between received and expected linecodes or on a 
+             PSK remote signal loss detection"
+    ::= { orx4ConfigurationEntry 4 }
+
+    orx4ConfigRedundancySetting OBJECT-TYPE
+        SYNTAX RedundancySettingValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The device's redundancy modes"
+    ::= { orx4ConfigurationEntry 5 }
+
+    orx4ConfigOutputOnChannelRedundancy OBJECT-TYPE
+        SYNTAX OutputOnChannelRedundancyValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The to be used outputs in 'channel redundancy' mode"
+    ::= { orx4ConfigurationEntry 6 }
+
+    orx4ConfigDeviceRedundancyDetection OBJECT-TYPE
+        SYNTAX DeviceRedundancyDetectionValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The device's nominal/redundant detection mode, modes are:
+              - Nominal/redundant mode detection automatic by slot number
+                    Devices at Slots 1, 3, 5, ... are nominal by default
+                    Devices at Slots 2, 4, 6, ... are redundant by default
+              - Nominal/Redundant mode manual setup using 'CMN_DEVICE_NOMINAL_REDUNDANT'"
+    ::= { orx4ConfigurationEntry 7 }
+
+    orx4ConfigDeviceNominalRedundant OBJECT-TYPE
+        SYNTAX DeviceNominalRedundantValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Switches the device in nominal or redundant mode
+             Only used in 'Device Redundancy' mode"
+    ::= { orx4ConfigurationEntry 8 }
+
+    orx4ConfigActivateChannel_Chn1 OBJECT-TYPE
+        SYNTAX ActivityMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Used to set this channel's activity mode"
+    ::= { orx4ConfigurationEntry 9 }
+
+    orx4ConfigActivateChannel_Chn2 OBJECT-TYPE
+        SYNTAX ActivityMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Used to set this channel's activity mode"
+    ::= { orx4ConfigurationEntry 10 }
+
+    orx4ConfigActivateChannel_Chn3 OBJECT-TYPE
+        SYNTAX ActivityMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Used to set this channel's activity mode"
+    ::= { orx4ConfigurationEntry 11 }
+
+    orx4ConfigActivateChannel_Chn4 OBJECT-TYPE
+        SYNTAX ActivityMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Used to set this channel's activity mode"
+    ::= { orx4ConfigurationEntry 12 }
+
+    orx4ConfigInactivityBehaviour_Chn1 OBJECT-TYPE
+        SYNTAX InactivityBehaviourValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's behaviour in inactive or redundant states"
+    ::= { orx4ConfigurationEntry 13 }
+
+    orx4ConfigInactivityBehaviour_Chn2 OBJECT-TYPE
+        SYNTAX InactivityBehaviourValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's behaviour in inactive or redundant states"
+    ::= { orx4ConfigurationEntry 14 }
+
+    orx4ConfigInactivityBehaviour_Chn3 OBJECT-TYPE
+        SYNTAX InactivityBehaviourValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's behaviour in inactive or redundant states"
+    ::= { orx4ConfigurationEntry 15 }
+
+    orx4ConfigInactivityBehaviour_Chn4 OBJECT-TYPE
+        SYNTAX InactivityBehaviourValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's behaviour in inactive or redundant states"
+    ::= { orx4ConfigurationEntry 16 }
+
+    orx4ConfigRfOutputLevel_Chn1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's rf output level relative to the nominal value in 0.1dB units"
+    ::= { orx4ConfigurationEntry 17 }
+
+    orx4ConfigRfOutputLevel_Chn2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's rf output level relative to the nominal value in 0.1dB units"
+    ::= { orx4ConfigurationEntry 18 }
+
+    orx4ConfigRfOutputLevel_Chn3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's rf output level relative to the nominal value in 0.1dB units"
+    ::= { orx4ConfigurationEntry 19 }
+
+    orx4ConfigRfOutputLevel_Chn4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's rf output level relative to the nominal value in 0.1dB units"
+    ::= { orx4ConfigurationEntry 20 }
+
+    orx4ConfigRfAttenuatorManual_Chn1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's rf attenuator setting in 0.1dB units.
+             Only valid if regulation is switched off, means
+             'orx4ConfigRegulationMode_Chn == noRegulationManualSetup(1)'"
+    ::= { orx4ConfigurationEntry 21 }
+
+    orx4ConfigRfAttenuatorManual_Chn2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's rf attenuator setting in 0.1dB units.
+             Only valid if regulation is switched off, means
+             'orx4ConfigRegulationMode_Chn == noRegulationManualSetup(1)'"
+    ::= { orx4ConfigurationEntry 22 }
+
+    orx4ConfigRfAttenuatorManual_Chn3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's rf attenuator setting in 0.1dB units.
+             Only valid if regulation is switched off, means
+             'orx4ConfigRegulationMode_Chn == noRegulationManualSetup(1)'"
+    ::= { orx4ConfigurationEntry 23 }
+
+    orx4ConfigRfAttenuatorManual_Chn4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's rf attenuator setting in 0.1dB units.
+             Only valid if regulation is switched off, means
+             'orx4ConfigRegulationMode_Chn == noRegulationManualSetup(1)'"
+    ::= { orx4ConfigurationEntry 24 }
+
+    orx4ConfigRegulationMode_Chn1 OBJECT-TYPE
+        SYNTAX RegulationModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's regulation mode"
+    ::= { orx4ConfigurationEntry 25 }
+
+    orx4ConfigRegulationMode_Chn2 OBJECT-TYPE
+        SYNTAX RegulationModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's regulation mode"
+    ::= { orx4ConfigurationEntry 26 }
+
+    orx4ConfigRegulationMode_Chn3 OBJECT-TYPE
+        SYNTAX RegulationModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's regulation mode"
+    ::= { orx4ConfigurationEntry 27 }
+
+    orx4ConfigRegulationMode_Chn4 OBJECT-TYPE
+        SYNTAX RegulationModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's regulation mode"
+    ::= { orx4ConfigurationEntry 28 }
+
+    orx4ConfigInputWavelength_Chn1 OBJECT-TYPE
+        SYNTAX InputWavelengthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's optical input wavelength.
+             (Used to adjust input power measurement)"
+    ::= { orx4ConfigurationEntry 29 }
+
+    orx4ConfigInputWavelength_Chn2 OBJECT-TYPE
+        SYNTAX InputWavelengthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's optical input wavelength.
+             (Used to adjust input power measurement)"
+    ::= { orx4ConfigurationEntry 30 }
+
+    orx4ConfigInputWavelength_Chn3 OBJECT-TYPE
+        SYNTAX InputWavelengthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's optical input wavelength.
+             (Used to adjust input power measurement)"
+    ::= { orx4ConfigurationEntry 31 }
+
+    orx4ConfigInputWavelength_Chn4 OBJECT-TYPE
+        SYNTAX InputWavelengthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's optical input wavelength.
+             (Used to adjust input power measurement)"
+    ::= { orx4ConfigurationEntry 32 }
+
+    orx4ConfigExpectedLineCodeNumber_Chn1 OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The expected remote transmitter's linecode number"
+    ::= { orx4ConfigurationEntry 33 }
+
+    orx4ConfigExpectedLineCodeNumber_Chn2 OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The expected remote transmitter's linecode number"
+    ::= { orx4ConfigurationEntry 34 }
+
+    orx4ConfigExpectedLineCodeNumber_Chn3 OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The expected remote transmitter's linecode number"
+    ::= { orx4ConfigurationEntry 35 }
+
+    orx4ConfigExpectedLineCodeNumber_Chn4 OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The expected remote transmitter's linecode number"
+    ::= { orx4ConfigurationEntry 36 }
+    
+    orx4ConfigRfOutputLevelRangeMode_Chn1 OBJECT-TYPE
+        SYNTAX RfOutputLevelRangeMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Settings for this channel's allowed range of RF output level."
+    ::= { orx4ConfigurationEntry 37 }
+
+    orx4ConfigRfOutputLevelRangeMode_Chn2 OBJECT-TYPE
+        SYNTAX RfOutputLevelRangeMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Settings for this channel's allowed range of RF output level."
+    ::= { orx4ConfigurationEntry 38 }
+
+    orx4ConfigRfOutputLevelRangeMode_Chn3 OBJECT-TYPE
+        SYNTAX RfOutputLevelRangeMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Settings for this channel's allowed range of RF output level."
+    ::= { orx4ConfigurationEntry 39 }
+
+    orx4ConfigRfOutputLevelRangeMode_Chn4 OBJECT-TYPE
+        SYNTAX RfOutputLevelRangeMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Settings for this channel's allowed range of RF output level."
+    ::= { orx4ConfigurationEntry 40 }
+
+--*****************************************************************************************
+-- Display group
+
+    orx4DisplayTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Orx4DisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { orx4Display 1 }
+
+-- table of configuration entry(ro/rw)
+
+    orx4DisplayEntry OBJECT-TYPE
+        SYNTAX Orx4DisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { orx4NESlot  }
+    ::= { orx4DisplayTable 1 }
+
+-- the structure of the entry
+
+    Orx4DisplayEntry ::= SEQUENCE
+    {
+        orx4DisplayReceivedLineCodeNumber_Chn1     LineCodeNumberValue,
+        orx4DisplayReceivedLineCodeNumber_Chn2     LineCodeNumberValue,
+        orx4DisplayReceivedLineCodeNumber_Chn3     LineCodeNumberValue,
+        orx4DisplayReceivedLineCodeNumber_Chn4     LineCodeNumberValue,
+        orx4DisplayActivity_Chn1                   ActivityValue,
+        orx4DisplayActivity_Chn2                   ActivityValue,
+        orx4DisplayActivity_Chn3                   ActivityValue,
+        orx4DisplayActivity_Chn4                   ActivityValue,
+        orx4DisplayRfOutputNominalValue_Chn1       INTEGER,
+        orx4DisplayRfOutputNominalValue_Chn2       INTEGER,
+        orx4DisplayRfOutputNominalValue_Chn3       INTEGER,
+        orx4DisplayRfOutputNominalValue_Chn4       INTEGER,
+        orx4DisplayPskRemoteInfo_Chn1              DisplayString,
+        orx4DisplayPskRemoteInfo_Chn2              DisplayString,
+        orx4DisplayPskRemoteInfo_Chn3              DisplayString,
+        orx4DisplayPskRemoteInfo_Chn4              DisplayString
+    }
+
+    orx4DisplayReceivedLineCodeNumber_Chn1 OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's received line code number.
+             A value of '0' means: no valid line code received yet"
+      ::= { orx4DisplayEntry 1 }
+
+    orx4DisplayReceivedLineCodeNumber_Chn2 OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's received line code number.
+             A value of '0' means: no valid line code received yet"
+      ::= { orx4DisplayEntry 2 }
+
+    orx4DisplayReceivedLineCodeNumber_Chn3 OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's received line code number.
+             A value of '0' means: no valid line code received yet"
+      ::= { orx4DisplayEntry 3 }
+
+    orx4DisplayReceivedLineCodeNumber_Chn4 OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's received line code number.
+             A value of '0' means: no valid line code received yet"
+      ::= { orx4DisplayEntry 4 }
+
+    orx4DisplayActivity_Chn1 OBJECT-TYPE
+        SYNTAX ActivityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's activity state"
+      ::= { orx4DisplayEntry 5 }
+
+    orx4DisplayActivity_Chn2 OBJECT-TYPE
+        SYNTAX ActivityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's activity state"
+      ::= { orx4DisplayEntry 6 }
+
+    orx4DisplayActivity_Chn3 OBJECT-TYPE
+        SYNTAX ActivityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's activity state"
+      ::= { orx4DisplayEntry 7 }
+
+    orx4DisplayActivity_Chn4 OBJECT-TYPE
+        SYNTAX ActivityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's activity state"
+      ::= { orx4DisplayEntry 8 }
+
+    orx4DisplayRfOutputNominalValue_Chn1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's nominal RF output value in 0.1 dBuV units"
+      ::= { orx4DisplayEntry 9 }
+
+    orx4DisplayRfOutputNominalValue_Chn2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's nominal RF output value in 0.1 dBuV units"
+      ::= { orx4DisplayEntry 10 }
+
+    orx4DisplayRfOutputNominalValue_Chn3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's nominal RF output value in 0.1 dBuV units"
+      ::= { orx4DisplayEntry 11 }
+
+    orx4DisplayRfOutputNominalValue_Chn4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "This channel's nominal RF output value in 0.1 dBuV units"
+      ::= { orx4DisplayEntry 12 }
+
+    orx4DisplayPskRemoteInfo_Chn1 OBJECT-TYPE
+        SYNTAX DisplayString
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Detailed state of remote connected device(s) (input channel 1)
+            Received via the pilot PSK connection from remote transmitter
+            Not supported in all configurations of this device !!"
+      ::= { orx4DisplayEntry 13 }
+
+    orx4DisplayPskRemoteInfo_Chn2 OBJECT-TYPE
+        SYNTAX DisplayString
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Detailed state of remote connected device(s) (input channel 2)
+            Received via the pilot PSK connection from remote transmitter
+            Not supported in all configurations of this device !!"
+      ::= { orx4DisplayEntry 14 }
+
+    orx4DisplayPskRemoteInfo_Chn3 OBJECT-TYPE
+        SYNTAX DisplayString
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Detailed state of remote connected device(s) (input channel 3)
+            Received via the pilot PSK connection from remote transmitter
+            Not supported in all configurations of this device !!"
+      ::= { orx4DisplayEntry 15 }
+
+    orx4DisplayPskRemoteInfo_Chn4 OBJECT-TYPE
+        SYNTAX DisplayString
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Detailed state of remote connected device(s) (input channel 4)
+            Received via the pilot PSK connection from remote transmitter
+            Not supported in all configurations of this device !!"
+      ::= { orx4DisplayEntry 16 }
+
+
+
+--*****************************************************************************************
+END

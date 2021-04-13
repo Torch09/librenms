@@ -1,0 +1,231 @@
+-- **************************************************************
+-- HFC-Inventory-MIB für HFC-862-MHz-System
+--
+-- Revision Notes:
+-- 25.02.00  Klaus Biedenbach, T-Nova, E531i
+-- 				erster Entwurf
+-- 18.04.00  Klaus Biedenbach, T-Nova, E531i
+-- 				redaktionelle Überarbeitung
+-- 05.06.00  Klaus Biedenbach, T-Nova, E531i
+-- 				hfcInventoryShelf hinzu,
+-- 				Wertebereich für hfcInventorySlot hinzu.
+-- 				Struktur für hfcInventoryFabricData geändert,
+-- 06.10.00  Klaus Biedenbach, T-Nova, E531i
+-- 				Imports für hfc und trapSequenceNumber hinzu
+--				Access für hfcInventorySlot geändert in read-only
+--				Oktett-String-Format für hfcInventoryFabricData geändert
+--				hfcInventroryTrapEnable hinzu
+--				VARIABLES für Traps geändert
+--				Beschreibungen geändert oder ergänzt
+-- 26.10.00  Klaus Biedenbach, T-Nova, E531i
+--				redaktionelle Fehlerkorrekturen
+-- 03.07.03  Ralf Herberg, DKS, T12-9
+--				Änderung des Octetstring bei Modulen (hfcInventoryFabricData)
+--				Einarbeitung der neuen KDG SAP-Nummer
+-- **************************************************************
+
+
+T-NOVA-HFC-INVENTORY-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+	OBJECT-TYPE
+		FROM RFC-1212
+	hfc
+		FROM T-NOVA-ROOT-MIB
+	trapSequenceNumber
+		FROM T-NOVA-COMMON-TRAP-MIB;
+
+PosixTime ::= INTEGER
+
+--		"Zeit in Unix-Notifikation. 
+--		Anzahl der Sekunden seit 01. January 1970
+
+--		Date and time in Unix notification.
+--		Number of seconds since 1. January 1970"
+
+
+hfcInventory OBJECT IDENTIFIER ::= { hfc 1 }
+
+hfcInventoryLastChange OBJECT-TYPE
+	SYNTAX PosixTime
+	ACCESS read-only
+	STATUS mandatory
+	DESCRIPTION
+		"Zeitpunkt der letzten Änderung der inventoryTable.
+		
+		Time of the last change of inventoryTable
+		"
+	::= { hfcInventory 1 }
+
+-- Die Tabelle enthält eine Liste der Inventory-Daten aller aktuell bestückten
+-- Module. Die Tabelle wird indiziert durch die Angabe der Shelf-Nummer und der 
+-- Slot-Nummer.
+-- Netzelemente, die nur aus einem Shelf bestehen oder die keine Shelf-
+-- Nummerierung unterstützen, verwenden hfcInventoryShelf = 1 und addressieren 
+-- nur mit hfcInventorySlot. 
+-- Die Verstärkerpunkte der KDG besitzen keine automatische Slot-Nummerierung. 
+-- In den Netzelmenenten muss deshalb vom Netzelement-Controller sichergestellt
+-- werden, dass keine Doppelbelegung von Slot-Adressen auftreten können.
+-- Module, die keine Inventorydaten liefern, dürfen auch in der inventoryTable 
+-- eingetragen werden und enthalten dann in inventoryFabricData einen Null-String.
+-- Für Module, die keine Inventorydaten liefern, werden beim Ein- und Ausbau 
+-- keine Traps erzeugt.
+-- 
+-- The inventoryTable contains a list of inventory data for all currently plugged 
+-- in modules. The table is indexed by shelfNumber and slotNumber. 
+-- Network Elements which are composed of only one shelf or which are does not 
+-- support addressing of different shelfs sets hfcInventoryShelf = 1 and
+-- addresses the slots only with hfcInventorySlot.
+-- A Network Element which does not support und address nur mit hfcInventorySlot.
+-- The nodes of the KDG doesn't have automatic slot numbering. So the network   
+-- elementcontroller have to make sure, that no slotNumber is double-allocated.
+-- The inventoryTable may also contains modules, unable to deliver inventory data. 
+-- These entries deliver a Null-String for inventoryFabricData.
+-- No traps are created for these modules with no inventory data.
+
+
+hfcInventoryTable OBJECT-TYPE
+	SYNTAX SEQUENCE OF HfcInventoryEntry
+	ACCESS not-accessible
+	STATUS mandatory
+	DESCRIPTION
+		"Die Tabelle enthält eine Liste der Inventory-Daten aller aktuell 
+		bestückten Module. 
+		The inventoryTable inventoryTable contains a list of inventory data 
+		for all currently plugged in modules. 
+		"
+	::= { hfcInventory 2 }
+
+hfcInventoryEntry OBJECT-TYPE
+	SYNTAX HfcInventoryEntry
+	ACCESS not-accessible
+	STATUS mandatory
+	DESCRIPTION ""
+	INDEX { hfcInventoryShelf, hfcInventorySlot }
+	::= { hfcInventoryTable 1 }
+
+HfcInventoryEntry::= SEQUENCE {
+	hfcInventoryShelf	INTEGER,
+	hfcInventorySlot	INTEGER,
+	hfcInventoryFabricData	OCTET STRING,
+	hfcInventoryUserData	OCTET STRING
+	}
+
+hfcInventoryShelf OBJECT-TYPE
+	SYNTAX INTEGER (1..99)
+	ACCESS read-only
+	STATUS mandatory
+	DESCRIPTION
+		"Nummer des Baugruppenträgers. Die Variable wird für Netzelemente 
+		benötigt, die aus mehr als einem Baugruppenträger bestehen. 
+		Besteht das Netzelemente nur aus einem Baugruppenträger,
+		ist hfcInventoryShelf = 1. 
+
+		Shelf number. Is Needed for network elements consisting of more then 
+		one Shelf. Network elements with only one shelf use hfcInventoryShelf = 1
+		"
+	::= { hfcInventoryEntry 1 }
+
+hfcInventorySlot OBJECT-TYPE
+	SYNTAX INTEGER (1..999)
+	ACCESS read-only
+	STATUS mandatory
+	DESCRIPTION
+		"Slot-Nummer des Moduls. 
+
+		Module's slot number
+		"
+	::= { hfcInventoryEntry 2 }
+
+hfcInventoryFabricData OBJECT-TYPE
+	SYNTAX OCTET STRING
+	ACCESS read-only
+	STATUS mandatory
+	DESCRIPTION
+		"Inventory-Daten des Moduls, wie während der Fertigung 
+		programmiert. Format dieses octet strings:
+			Octet 1:			Fomattyp  (1)
+			Octet 2-12		SAP-Nummer KDG
+			Octet 13-26:		Firmensachnummer Teil 1
+			Octet 27-28:		Jahrtausend
+			Octet 29-36:		Firmensachnummer Teil 2
+			Octet 37-38:		Fertigungsjahr
+			Octet 39-50:		Seriennummer (Fabriknummer)
+			Octet 51-53:		Gerätestand
+			Octet 54-56:		Änderungsstand
+		Alle Parameter sind linksbündig (beginnend mit dem niedrigsten Octet)
+		einzutragen. Die Parameter sind mit Blanks auf die jeweilige definierte 
+		Länge aufzufüllen.
+
+		Inventory data of the module as programmed during manufacturing. 
+		Format of the octet string:
+			Octet 1:			Fomat indentifier  (1)
+			Octet 2-12			SAP number KDG
+			Octet 13-26:		Vendor objeckt number part 1
+			Octet 27-28:		millenium
+			Octet 29-36:		Vendor objeckt number part 2
+			Octet 37-38:		year of manufacture 
+			Octet 39-50:		Serial number
+			Octet 51-53:		
+			Octet 54-56:		 
+		All parameters are left spaced and start with the least significant 
+		Octet. Unused Octets have to be filled with blanks (0x20).
+		"
+	::= { hfcInventoryEntry 3 }
+
+hfcInventoryUserData OBJECT-TYPE
+	SYNTAX OCTET STRING ( SIZE (0..64) )
+	ACCESS read-write
+	STATUS mandatory
+	DESCRIPTION
+		"Frei beschreibbarer String zur Nutzung durch den Operator.
+		Muss nichtflüchtig im Modul gespeichert werden.
+
+		None volatile Memory for use by operator.
+		"
+	::= { hfcInventoryEntry 4 }
+
+hfcInventroryTrapEnable OBJECT-TYPE
+	SYNTAX INTEGER { enable (1), disable (2) }
+	ACCESS read-write
+	STATUS mandatory
+	DESCRIPTION
+		"Sperre für die Erzeugung der Traps
+			hfcInventoryInstallEvent
+			hfcInventoryRemoveEvent
+		
+		Enable/disable for
+			hfcInventoryInstallEvent
+			hfcInventoryRemoveEvent
+		"
+	::= { hfcInventory 3 }
+
+
+-- **************************************************************
+-- Traps
+-- **************************************************************
+
+hfcInventoryInstallEvent TRAP-TYPE
+	ENTERPRISE hfcInventory
+	VARIABLES {trapSequenceNumber, hfcInventoryShelf, hfcInventorySlot, 
+		hfcInventoryFabricData}
+	DESCRIPTION
+		"Meldet die Inventory Daten für ein neues hinzugekommenes Modul
+		
+		Indicates a new plugged-in module and its inventory data. 
+		"
+	::= 1
+
+hfcInventoryRemoveEvent TRAP-TYPE
+	ENTERPRISE hfcInventory
+	VARIABLES {trapSequenceNumber, hfcInventoryShelf, hfcInventorySlot,
+		hfcInventoryFabricData}
+	DESCRIPTION
+		"Meldet die Inventory Daten für ein Modul, das entfernt (ausgebaut) 
+		wurde.
+
+		Indicates a removed module and its inventory data.
+		"
+	::= 2
+
+END

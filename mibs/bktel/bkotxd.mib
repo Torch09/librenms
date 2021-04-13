@@ -1,0 +1,2268 @@
+-- *********************************************************************************************
+-- *
+-- * Description:   Implements definitions for the Otxd-modul
+-- *
+-- * Copyright 2003 by BKtel communications GmbH
+-- *
+-- *     V.0.1 16.09.03  M. Heldmann first draft
+-- *     V.0.2 24.09.03  M. Heldmann 'otxdConfigFiberLength' in meter units, some minor changes
+-- *     V.0.3 13.10.03  M. Heldmann 'otxdStatesInternalVoltage...' description changed
+-- *     V.0.4 17.12.03  M. Heldmann added 'otxdConfigPilotMode' and 'otxdDisplayOmiNominal'
+-- *     V.0.5 25.02.04  M. Heldmann changed decriptions dBm to dB for all offsets
+-- *     V.1.0 11.09.04  M. Heldmann added otxdStatesRfAttenLimit, otxdStatesPilotRegLimit and otxdStatesLaserCurrentLow
+-- *                                 renamed otxdStatesDefective to otxdStatesCommLoss
+-- *     V.1.1 04.05.05  M. Heldmann expanded PilotFrequency values
+-- *     V.1.2 21.09.05  M. Heldmann 'otxdStatesPilotPower...' states values marked obsolete
+-- *                                 'otxdPilotPower...' measuring values marked obsolete
+-- *                                 added otxdStatesPowerSupplyLeft...otxdStatesFanRight
+-- *     V.1.3 04.10.06  M. Heldmann NESlotWriteValue expanded due to new 2G6 platform needs
+-- *     V.2.0 21.01.08  M. Heldmann renamed threshold parameters in otxdMeasuringValuesTable
+-- *                                 some threshold parameters in otxdMeasuringValuesTable made read-write
+-- *                                 renamed otxdStatesTecHeatHigh -> otxdStatesTecLow,  otxdStatesTecCoolHigh -> otxdStatesTecHigh
+-- *                                 parameters for new transmitter hardware with extended features:
+-- *                                    - otxdSatRfInputLoLo ... otxdSatRfInputHiHi measuring values added
+-- *                                    - otxdStatesSatInputLow, otxdStatesSatInputHigh states added
+-- *                                    - otxdConfigNarrowCastGain, otxdConfigPilot2Omi, otxdConfigPilot2Mode configs added
+-- *                                    - otxdDisplayPilot2Frequency, otxdDisplay***Supported added
+-- *                                    - otxdConfigLineCodeEnable renamed to otxdConfigPilotPskUsage
+-- *                                       and its value range expanded (expansion is downwards-compatible)
+-- *                                    - otxdConfigLineCodeNumber value range expanded
+-- *     V.2.1 17.06.08  M. Heldmann added redundancy issues
+-- *                                    - otxdControlLaserShutdown marked obsolete
+-- *                                    - otxdConfigDeviceActivity, otxdDisplayRedundancySupported,
+-- *                                       otxdDisplayDeviceRedundancyState and otxdDisplayDeviceActivity added
+-- *                                 V.2.0 from 21.01.08 had a fragmentary oid numbering from otxdDisplayPilot2Supported,
+-- *                                 changed the oid numbering from otxdDisplayPilot2Supported.
+-- *                                 (V.2.0 was only implemented in NECE software 2.4.0 BETA versions)
+-- *                                 added otxdStatesRedundancySwitch
+-- *     V.3.0 24.06.09  M. Heldmann added extended SAT features for DS55
+-- *                                    - otxdSatOmiReadLoLo, otxdSatOmiReadLo, otxdSatOmiReadValue, otxdSatOmiReadHi, otxdSatOmiReadHiHi
+-- *                                    - otxdSatRfGainReadLoLo, otxdSatRfGainReadLo, otxdSatRfGainReadValue, otxdSatRfGainReadHi, otxdSatRfGainReadHiHi
+-- *                                    - otxdStatesSatOmiReadLow, otxdStatesSatOmiReadHigh, otxdStatesSatRfGainReadLow, otxdStatesSatRfGainReadHigh
+-- *                                    - otxdConfigSatAgcMode, otxdConfigSatOmi, otxdConfigSatRfGain, otxdConfigSatRfGainLimit, otxdConfigSatSlope, otxdConfigSatLnbSupply
+-- *                                    - otxdDisplaySatExtendedFeaturesSupported, otxdDisplaySatSlopeSupported, otxdDisplaySatLnbSupplySupported
+-- *                                 renamed otxdDisplayTransbusSupported to otxdDisplayFullTransbusSupported
+-- *     V.3.1 14.05.10  M. Heldmann added    otxdDisplayPilotAutomaticModeSupported, otxdConfigRedundancyMask and otxdConfigRfInputAlarmMode
+-- *                                 expanded otxdConfigPilotMode and otxdConfigPilot2Mode, see PilotMode definition                          
+-- *                                 renamed  otxdConfigDeviceActivity to otxdConfigRedundancyMode
+-- *     V.3.2 27.03.13  M. Heldmann added otxdStatesSatLnbShortCircuit
+-- *     V.3.3 11.07.13  M. Heldmann adjusted syntax of "CommonEntry" to remove MIB compiler warnings
+-- *     V.3.4 06.11.13  M. Heldmann added otxdConfigClippingMitigation
+-- *     V.3.5 05.09.14  M. Heldmann changed CommonModuleWidth and ConfigNESlotWrite STATUS to optional
+-- *********************************************************************************************
+
+BKTEL-HFC862-OTXD-V01-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        experimental, enterprises, TimeTicks, IpAddress, Counter
+                 FROM RFC1155-SMI
+    OBJECT-TYPE
+                 FROM RFC-1212
+        TRAP-TYPE
+                 FROM RFC-1215
+        modules, DisplayString, TruthValue, PerceivedSeverityValue, NESlotValue, ModuleWidthValue
+                 FROM   BKTEL-HFC862-BASE-MIB
+    ;
+
+    otxd                  OBJECT IDENTIFIER ::= { modules 109 }
+    otxdCommon            OBJECT IDENTIFIER ::= { otxd 1 }
+    otxdStates            OBJECT IDENTIFIER ::= { otxd 2 }
+    otxdConfiguration     OBJECT IDENTIFIER ::= { otxd 3 }
+    otxdControl           OBJECT IDENTIFIER ::= { otxd 4 }
+    otxdMeasuringValues   OBJECT IDENTIFIER ::= { otxd 5 }
+    otxdDisplay           OBJECT IDENTIFIER ::= { otxd 6 }
+
+
+--
+-- Type definitions
+--
+
+        AgcMode ::= INTEGER
+            {
+            modeAgcOff(1),
+            modeAgcOn(2)
+            }
+
+        PilotMode ::= INTEGER
+            {
+            modePilotOff(1),
+            modePilotOn(2),
+            -- the following mode is only supported if otxdDisplayPilotAutomaticModeSupported == true(1)
+            modePilotAutomatic(3) 
+            }
+
+        RfMode ::= INTEGER
+            {
+            modeNormal(1),
+            modeLowNoise(2),
+            modeLowDistortion(3)
+            }
+
+        RfInputAlarmMode ::= INTEGER
+            {
+            alarmEnableAll(1),
+            alarmCatvEnableSatDisable(2),
+            alarmSatEnableCatvDisable(3)
+            }
+
+        PilotFrequency ::= INTEGER
+            {
+            -- Default set of pilot frequency data
+            frequency_307_kHz(1),
+            frequency_614_kHz(2),
+            frequency_1229_kHz(3),
+            frequency_2458_kHz(4),
+
+            freq_unused5(5),
+            freq_unused6(6),
+            freq_unused7(7),
+            freq_unused8(8),
+            freq_unused9(9),
+            freq_unused10(10),
+            freq_unused11(11),
+            freq_unused12(12),
+            freq_unused13(13),
+            freq_unused14(14),
+            freq_unused15(15),
+            freq_unused16(16),
+
+            -- Alternate set of pilot frequency data
+            frequency_632_kHz(17),
+            frequency_3584_kHz(18)
+            }
+
+        PilotPskUsageValue ::= INTEGER
+            {
+            enableLinecodes(1),
+            disableAll(2),
+            -- the following mode is only supported if otxdDisplayFullTransbusSupported == true(1)
+            enableFullTransbus(3)
+            }
+
+        RedundancyMode ::= INTEGER
+            {
+            modeForceStandby(1),
+            modeAlwaysActive(2),
+            -- the following modes are only supported if otxdDisplayRedundancySupported == true(1)
+            modeNominalMaster(3),
+            modeRedundantSlave(4),
+            modeNominalRedundantAutomaticBySlot(5)
+            }
+
+        RedundancyMask ::= INTEGER
+            {
+            maskAlarmsOnly(1),
+            maskAlarmsAndWarnings(2),
+            maskSpecialAdjusted(3)           -- This item is NOT writable !!
+            }
+
+        DeviceRedundancyState ::= INTEGER
+            {
+            stateNominalMaster(1),
+            stateRedundantSlave(2)
+            }
+
+        DeviceActivityState ::= INTEGER
+            {
+            standby(1),
+            active(2)
+            }
+
+        LnbSupplyValue ::= INTEGER
+            {
+            lnbSupplyOff(1),
+            lnbSupply14V(2),
+            lnbSupply18V(3),
+            lnbSupply14V_22kHz(4),
+            lnbSupply18V_22kHz(5)
+            }
+
+        LnbSupplySupportedValue ::= INTEGER
+            {
+            notSupported(1),
+            lnbSupply14V18VSwitchSupported(2),
+            lnbSupply14V18VAnd22kHzSwitchSupported(3)
+            }
+
+        LineCodeNumberValue ::= INTEGER (0..65535)
+
+        NESlotWriteValue ::= INTEGER (-1..99)
+
+
+--*****************************************************************************************
+-- OTXD ( Direct modulated optical transmitter )
+--*****************************************************************************************
+
+-- otxdCommon group
+
+    otxdCommonNumberOfModules OBJECT-TYPE
+        SYNTAX  INTEGER(0..50)
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Number of modules in table."
+    ::= { otxdCommon 1 }
+
+    otxdCommonTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OtxdCommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "The table contains all modules of the OTXD-type in the NE"
+    ::= { otxdCommon 2 }
+
+-- table of states entry(ro/rw)
+
+    otxdCommonEntry OBJECT-TYPE
+        SYNTAX OtxdCommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { otxdNESlot }
+    ::= { otxdCommonTable 1 }
+
+-- the structure of the entry
+
+    OtxdCommonEntry ::= SEQUENCE
+    {
+        otxdNESlot                      NESlotValue,
+        otxdCommonType                  DisplayString,
+        otxdCommonDescr                 DisplayString,
+        otxdCommonFirmwareId            DisplayString,
+        otxdCommonModuleWidth           ModuleWidthValue
+    }
+
+    otxdNESlot OBJECT-TYPE
+        SYNTAX  NESlotValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The slot number of the chassis for which this
+        entry contains management information."
+    ::= { otxdCommonEntry 1 }
+
+    otxdCommonType OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE(0..32))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The type of physical module. modSlotEmpty indicates
+         an empty slot.  A Value of modSlotUnknown indicates
+         that the type of module is unknown."
+    ::= { otxdCommonEntry 2 }
+
+    otxdCommonDescr OBJECT-TYPE
+        SYNTAX  DisplayString
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+        "A textual description of the module.
+        If not available, this Value should be
+        set to a zero length string."
+    ::= { otxdCommonEntry 3 }
+
+    otxdCommonFirmwareId OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..32))
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The firmware Id of the module."
+    ::= { otxdCommonEntry 4 }
+
+    otxdCommonModuleWidth OBJECT-TYPE
+        SYNTAX ModuleWidthValue
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION
+        "The width of the module in multiples of slots (1, 2, ...)
+        Returns 0 for special housings (for example 19inch, etc...)"
+    ::= { otxdCommonEntry 5 }
+
+--*****************************************************************************************
+-- otxdMeasuringValues group
+
+-- table of measuring Values
+
+    otxdMeasuringValuesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OtxdMeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { otxdMeasuringValues 1 }
+
+-- table of measuring Values entry
+
+    otxdMeasuringValuesEntry OBJECT-TYPE
+        SYNTAX OtxdMeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { otxdNESlot }
+    ::= { otxdMeasuringValuesTable 1 }
+
+--  the structure of the entry
+
+    OtxdMeasuringValuesEntry ::= SEQUENCE
+    {
+        otxdRfInputLoLo            INTEGER,
+        otxdRfInputLo              INTEGER,
+        otxdRfInputValue           INTEGER,
+        otxdRfInputHi              INTEGER,
+        otxdRfInputHiHi            INTEGER,
+
+        otxdOutputPowerLoLo        INTEGER,
+        otxdOutputPowerLo          INTEGER,
+        otxdOutputPowerValue       INTEGER,
+        otxdOutputPowerHi          INTEGER,
+        otxdOutputPowerHiHi        INTEGER,
+
+        otxdOmiReadLoLo            INTEGER,
+        otxdOmiReadLo              INTEGER,
+        otxdOmiReadValue           INTEGER,
+        otxdOmiReadHi              INTEGER,
+        otxdOmiReadHiHi            INTEGER,
+
+        otxdRfGainReadLoLo         INTEGER,
+        otxdRfGainReadLo           INTEGER,
+        otxdRfGainReadValue        INTEGER,
+        otxdRfGainReadHi           INTEGER,
+        otxdRfGainReadHiHi         INTEGER,
+
+        otxdLaserCurrentRelLoLo    INTEGER,
+        otxdLaserCurrentRelLo      INTEGER,
+        otxdLaserCurrentRelValue   INTEGER,
+        otxdLaserCurrentRelHi      INTEGER,
+        otxdLaserCurrentRelHiHi    INTEGER,
+
+        otxdTecCurrentRelLoLo      INTEGER,
+        otxdTecCurrentRelLo        INTEGER,
+        otxdTecCurrentRelValue     INTEGER,
+        otxdTecCurrentRelHi        INTEGER,
+        otxdTecCurrentRelHiHi      INTEGER,
+
+        otxdObsoleteValueLoLo      INTEGER,
+        otxdObsoleteValueLo        INTEGER,
+        otxdObsoleteValue          INTEGER,
+        otxdObsoleteValueHi        INTEGER,
+        otxdObsoleteValueHiHi      INTEGER,
+
+        otxdTecVoltageLoLo         INTEGER,
+        otxdTecVoltageLo           INTEGER,
+        otxdTecVoltageValue        INTEGER,
+        otxdTecVoltageHi           INTEGER,
+        otxdTecVoltageHiHi         INTEGER,
+
+        otxdMinus2p5VLoLo          INTEGER,
+        otxdMinus2p5VLo            INTEGER,
+        otxdMinus2p5VValue         INTEGER,
+        otxdMinus2p5VHi            INTEGER,
+        otxdMinus2p5VHiHi          INTEGER,
+
+        otxdPlus3p3VLoLo           INTEGER,
+        otxdPlus3p3VLo             INTEGER,
+        otxdPlus3p3VValue          INTEGER,
+        otxdPlus3p3VHi             INTEGER,
+        otxdPlus3p3VHiHi           INTEGER,
+
+        otxdPlus5VLoLo             INTEGER,
+        otxdPlus5VLo               INTEGER,
+        otxdPlus5VValue            INTEGER,
+        otxdPlus5VHi               INTEGER,
+        otxdPlus5VHiHi             INTEGER,
+
+        otxdPlus10VLoLo            INTEGER,
+        otxdPlus10VLo              INTEGER,
+        otxdPlus10VValue           INTEGER,
+        otxdPlus10VHi              INTEGER,
+        otxdPlus10VHiHi            INTEGER,
+
+        otxdPlus24VLoLo            INTEGER,
+        otxdPlus24VLo              INTEGER,
+        otxdPlus24VValue           INTEGER,
+        otxdPlus24VHi              INTEGER,
+        otxdPlus24VHiHi            INTEGER,
+
+        otxdTemperatureLoLo        INTEGER,
+        otxdTemperatureLo          INTEGER,
+        otxdTemperatureValue       INTEGER,
+        otxdTemperatureHi          INTEGER,
+        otxdTemperatureHiHi        INTEGER,
+
+        otxdWavelengthOffsetLoLo   INTEGER,
+        otxdWavelengthOffsetLo     INTEGER,
+        otxdWavelengthOffsetValue  INTEGER,
+        otxdWavelengthOffsetHi     INTEGER,
+        otxdWavelengthOffsetHiHi   INTEGER,
+
+        otxdLaserTempOffsetLoLo    INTEGER,
+        otxdLaserTempOffsetLo      INTEGER,
+        otxdLaserTempOffsetValue   INTEGER,
+        otxdLaserTempOffsetHi      INTEGER,
+        otxdLaserTempOffsetHiHi    INTEGER,
+
+        otxdSatRfInputLoLo         INTEGER,
+        otxdSatRfInputLo           INTEGER,
+        otxdSatRfInputValue        INTEGER,
+        otxdSatRfInputHi           INTEGER,
+        otxdSatRfInputHiHi         INTEGER,
+
+        otxdSatOmiReadLoLo         INTEGER,
+        otxdSatOmiReadLo           INTEGER,
+        otxdSatOmiReadValue        INTEGER,
+        otxdSatOmiReadHi           INTEGER,
+        otxdSatOmiReadHiHi         INTEGER,
+
+        otxdSatRfGainReadLoLo      INTEGER,
+        otxdSatRfGainReadLo        INTEGER,
+        otxdSatRfGainReadValue     INTEGER,
+        otxdSatRfGainReadHi        INTEGER,
+        otxdSatRfGainReadHiHi      INTEGER
+    }
+
+-- *****
+    otxdRfInputLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) low alarm threshold in steps of 0.1 dBm."
+    ::= { otxdMeasuringValuesEntry 1 }
+
+    otxdRfInputLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) low warning threshold in steps of 0.1 dBm."
+    ::= { otxdMeasuringValuesEntry 2 }
+
+    otxdRfInputValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) in steps of 0.1 dBm."
+    ::= { otxdMeasuringValuesEntry 3 }
+
+    otxdRfInputHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) high warning threshold in steps of 0.1 dBm."
+    ::= { otxdMeasuringValuesEntry 4 }
+
+    otxdRfInputHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) high alarm threshold in steps of 0.1 dBm."
+    ::= { otxdMeasuringValuesEntry 5 }
+
+-- *****
+    otxdOutputPowerLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power low alarm threshold in steps of 0.1 dBm."
+    ::= { otxdMeasuringValuesEntry 6 }
+
+    otxdOutputPowerLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power low warning threshold in steps of 0.1 dBm."
+    ::= { otxdMeasuringValuesEntry 7 }
+
+    otxdOutputPowerValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output power in steps of 0.1 dBm."
+    ::= { otxdMeasuringValuesEntry 8 }
+
+    otxdOutputPowerHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power high warning threshold in steps of 0.1 dBm."
+    ::= { otxdMeasuringValuesEntry 9 }
+
+    otxdOutputPowerHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power high alarm threshold in steps of 0.1 dBm."
+    ::= { otxdMeasuringValuesEntry 10 }
+
+-- *****
+    otxdOmiReadLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset low alarm threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 11 }
+
+    otxdOmiReadLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset low warning threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 12 }
+
+    otxdOmiReadValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The offset from nominal optical modulation index in steps of 0.1 dB.
+                If AGC is on this parameter is equal to otxdConfigurationOmi.
+                If AGC is off this paramters shows the calculated Omi for the adjusted gain."
+    ::= { otxdMeasuringValuesEntry 13 }
+
+    otxdOmiReadHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset high warning threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 14 }
+
+    otxdOmiReadHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset high alarm threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 15 }
+
+-- *****
+    otxdRfGainReadLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset low alarm threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 16 }
+
+    otxdRfGainReadLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset low warning threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 17 }
+
+    otxdRfGainReadValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The offset from nominal gain in steps of 0.1 dB.
+                If AGC is off this parameter is equal to otxdConfigurationRfGain.
+                If AGC is on this paramters shows the calculated gain for the adjusted omi."
+    ::= { otxdMeasuringValuesEntry 18 }
+
+    otxdRfGainReadHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset high warning threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 19 }
+
+    otxdRfGainReadHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset high alarm threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 20 }
+
+-- *****
+    otxdLaserCurrentRelLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current low alarm threshold in steps of 0.1%."
+    ::= { otxdMeasuringValuesEntry 21 }
+
+    otxdLaserCurrentRelLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current low warning threshold in steps of 0.1%."
+    ::= { otxdMeasuringValuesEntry 22 }
+
+    otxdLaserCurrentRelValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser current relative to the current at begin of life in steps of 0.1%."
+    ::= { otxdMeasuringValuesEntry 23 }
+
+    otxdLaserCurrentRelHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current high warning threshold in steps of 0.1%."
+    ::= { otxdMeasuringValuesEntry 24 }
+
+    otxdLaserCurrentRelHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current high alarm threshold in steps of 0.1%."
+    ::= { otxdMeasuringValuesEntry 25 }
+
+-- *****
+    otxdTecCurrentRelLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current low alarm threshold in steps of 0.1%."
+    ::= { otxdMeasuringValuesEntry 26 }
+
+    otxdTecCurrentRelLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current low warning threshold in steps of 0.1%."
+    ::= { otxdMeasuringValuesEntry 27 }
+
+    otxdTecCurrentRelValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The relative thermo-electric-cooler current in steps of 0.1%.
+                     +100% is the alarm threshold for cooling,
+                     -100% is the alarm threshold for heating"
+    ::= { otxdMeasuringValuesEntry 28 }
+
+    otxdTecCurrentRelHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current high warning threshold in steps of 0.1%."
+    ::= { otxdMeasuringValuesEntry 29 }
+
+    otxdTecCurrentRelHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current high alarm threshold in steps of 0.1%."
+    ::= { otxdMeasuringValuesEntry 30 }
+
+-- *****
+    otxdObsoleteValueLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "This values is obsolete - Please ignore it"
+    ::= { otxdMeasuringValuesEntry 31 }
+
+    otxdObsoleteValueLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "This values is obsolete - Please ignore it"
+    ::= { otxdMeasuringValuesEntry 32 }
+
+    otxdObsoleteValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "This values is obsolete - Please ignore it"
+    ::= { otxdMeasuringValuesEntry 33 }
+
+    otxdObsoleteValueHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "This values is obsolete - Please ignore it"
+    ::= { otxdMeasuringValuesEntry 34 }
+
+    otxdObsoleteValueHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "This values is obsolete - Please ignore it"
+    ::= { otxdMeasuringValuesEntry 35 }
+
+-- *****
+    otxdTecVoltageLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage low alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 36 }
+
+    otxdTecVoltageLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage low warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 37 }
+
+    otxdTecVoltageValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 38 }
+
+    otxdTecVoltageHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage high warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 39 }
+
+    otxdTecVoltageHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage high alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 40 }
+
+-- *****
+    otxdMinus2p5VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The -2.5V internal voltage low alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 41 }
+
+    otxdMinus2p5VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The -2.5V internal voltage low warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 42 }
+
+    otxdMinus2p5VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The -2.5V internal voltage in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 43 }
+
+    otxdMinus2p5VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The -2.5V internal voltage high warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 44 }
+
+    otxdMinus2p5VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The -2.5V internal voltage high alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 45 }
+
+-- *****
+    otxdPlus3p3VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +3.3V internal voltage low alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 46 }
+
+    otxdPlus3p3VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +3.3V internal voltage low warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 47 }
+
+    otxdPlus3p3VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +3.3V internal voltage in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 48 }
+
+    otxdPlus3p3VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +3.3V internal voltage high warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 49 }
+
+    otxdPlus3p3VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +3.3V internal voltage high alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 50 }
+
+-- *****
+    otxdPlus5VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5V internal voltage low alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 51 }
+
+    otxdPlus5VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5V internal voltage low warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 52 }
+
+    otxdPlus5VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5V internal voltage in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 53 }
+
+    otxdPlus5VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5V internal voltage high warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 54 }
+
+    otxdPlus5VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +5V internal voltage high alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 55 }
+
+-- *****
+    otxdPlus10VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +10V internal voltage low alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 56 }
+
+    otxdPlus10VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +10V internal voltage low warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 57 }
+
+    otxdPlus10VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +10V internal voltage in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 58 }
+
+    otxdPlus10VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +10V internal voltage high warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 59 }
+
+    otxdPlus10VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +10V internal voltage high alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 60 }
+
+-- *****
+    otxdPlus24VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V supply voltage low alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 61 }
+
+    otxdPlus24VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V supply voltage low warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 62 }
+
+    otxdPlus24VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V supply voltage in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 63 }
+
+    otxdPlus24VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V supply voltage high warning threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 64 }
+
+    otxdPlus24VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V supply voltage high alarm threshold in steps of 0.1V."
+    ::= { otxdMeasuringValuesEntry 65 }
+
+-- *****
+     otxdTemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low alarm threshold in steps of 0.1 celsius degrees."
+    ::= { otxdMeasuringValuesEntry 66 }
+
+    otxdTemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low warning threshold in steps of 0.1 celsius degrees."
+    ::= { otxdMeasuringValuesEntry 67 }
+
+    otxdTemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature in steps of 0.1 celsius degrees."
+    ::= { otxdMeasuringValuesEntry 68 }
+
+    otxdTemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high warning threshold in steps of 0.1 celsius degrees."
+    ::= { otxdMeasuringValuesEntry 69 }
+
+    otxdTemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high alarm threshold in steps of 0.1 celsius degrees."
+    ::= { otxdMeasuringValuesEntry 70 }
+
+-- *****
+     otxdWavelengthOffsetLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The wavelength offset low alarm threshold in steps of 0.01 nm units."
+    ::= { otxdMeasuringValuesEntry 71 }
+
+    otxdWavelengthOffsetLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The wavelength offset low warning threshold in steps of 0.01 nm units."
+    ::= { otxdMeasuringValuesEntry 72 }
+
+    otxdWavelengthOffsetValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The wavelength offset (from nominal wavelength) in steps of 0.01 nm units."
+    ::= { otxdMeasuringValuesEntry 73 }
+
+    otxdWavelengthOffsetHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The wavelength offset high warning threshold in steps of 0.01 nm units."
+    ::= { otxdMeasuringValuesEntry 74 }
+
+    otxdWavelengthOffsetHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The wavelength offset high alarm threshold in steps of 0.01 nm units."
+    ::= { otxdMeasuringValuesEntry 75 }
+
+-- *****
+     otxdLaserTempOffsetLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset low alarm threshold in steps of 0.1 celsius degrees."
+    ::= { otxdMeasuringValuesEntry 76 }
+
+    otxdLaserTempOffsetLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset low warning threshold in steps of 0.1 celsius degrees."
+    ::= { otxdMeasuringValuesEntry 77 }
+
+    otxdLaserTempOffsetValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset (from nominal temperature) in steps of 0.1 celsius degrees."
+    ::= { otxdMeasuringValuesEntry 78 }
+
+    otxdLaserTempOffsetHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset high warning threshold in steps of 0.1 celsius degrees."
+    ::= { otxdMeasuringValuesEntry 79 }
+
+    otxdLaserTempOffsetHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset high alarm threshold in steps of 0.1 celsius degrees."
+    ::= { otxdMeasuringValuesEntry 80 }
+
+-- *****
+    otxdSatRfInputLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "SatRfInput (total rms) low alarm threshold in steps of 0.1 dBm.
+            Only usable if otxdDisplaySatRfInputSupported == true(1), otherwise always reports zero"
+    ::= { otxdMeasuringValuesEntry 81 }
+
+    otxdSatRfInputLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "SatRfInput (total rms) low warning threshold in steps of 0.1 dBm.
+            Only usable if otxdDisplaySatRfInputSupported == true(1), otherwise always reports zero"
+    ::= { otxdMeasuringValuesEntry 82 }
+
+    otxdSatRfInputValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "SatRfInput (total rms) in steps of 0.1 dBm.
+            Only usable if otxdDisplaySatRfInputSupported == true(1), otherwise always reports zero"
+    ::= { otxdMeasuringValuesEntry 83 }
+
+    otxdSatRfInputHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "SatRfInput (total rms) high warning threshold in steps of 0.1 dBm.
+            Only usable if otxdDisplaySatRfInputSupported == true(1), otherwise always reports zero"
+    ::= { otxdMeasuringValuesEntry 84 }
+
+    otxdSatRfInputHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "SatRfInput (total rms) high alarm threshold in steps of 0.1 dBm.
+            Only usable if otxdDisplaySatRfInputSupported == true(1), otherwise always reports zero"
+    ::= { otxdMeasuringValuesEntry 85 }
+
+-- *****
+    otxdSatOmiReadLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated SAT OMI offset low alarm threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 86 }
+
+    otxdSatOmiReadLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated SAT OMI offset low warning threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 87 }
+
+    otxdSatOmiReadValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The offset from SAT nominal optical modulation index in steps of 0.1 dB.
+                If SAT AGC is on this parameter is equal to otxdConfigurationOmi.
+                If SAT AGC is off this paramters shows the calculated Omi for the adjusted gain."
+    ::= { otxdMeasuringValuesEntry 88 }
+
+    otxdSatOmiReadHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated SAT OMI offset high warning threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 89 }
+
+    otxdSatOmiReadHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated SAT OMI offset high alarm threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 90 }
+
+-- *****
+    otxdSatRfGainReadLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated SAT RF gain offset low alarm threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 91 }
+
+    otxdSatRfGainReadLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated SAT RF gain offset low warning threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 92 }
+
+    otxdSatRfGainReadValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The offset from SAT nominal gain in steps of 0.1 dB.
+                If SAT AGC is off this parameter is equal to otxdConfigurationRfGain.
+                If SAT AGC is on this paramters shows the calculated gain for the adjusted omi."
+    ::= { otxdMeasuringValuesEntry 93 }
+
+    otxdSatRfGainReadHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated SAT RF gain offset high warning threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 94 }
+
+    otxdSatRfGainReadHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated SAT RF gain offset high alarm threshold in steps of 0.1 dB."
+    ::= { otxdMeasuringValuesEntry 95 }
+
+
+--*****************************************************************************************
+--  otxdStates group
+
+-- Note: For every control OId there must be a correspondant alarm OId!
+
+    otxdStatesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OtxdStatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { otxdStates 1 }
+
+-- table of states entry(ro/rw)
+
+    otxdStatesEntry OBJECT-TYPE
+        SYNTAX OtxdStatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { otxdNESlot }
+    ::= { otxdStatesTable 1 }
+
+-- the structure of the entry
+
+    OtxdStatesEntry ::= SEQUENCE
+    {
+        otxdStatesBootloader          PerceivedSeverityValue,
+        otxdStatesCommLoss            PerceivedSeverityValue,
+        otxdStatesInitializing        PerceivedSeverityValue,
+        otxdStatesLaserShutdown       PerceivedSeverityValue,
+        otxdStatesTemperatureLow      PerceivedSeverityValue,
+        otxdStatesTemperatureHigh     PerceivedSeverityValue,
+        otxdStatesInputLow            PerceivedSeverityValue,
+        otxdStatesInputHigh           PerceivedSeverityValue,
+        otxdStatesOutputLow           PerceivedSeverityValue,
+        otxdStatesOutputHigh          PerceivedSeverityValue,
+        otxdStatesLaserAging          PerceivedSeverityValue,
+        otxdStatesTecLow              PerceivedSeverityValue,
+        otxdStatesTecHigh             PerceivedSeverityValue,
+        otxdStatesOmiReadLow          PerceivedSeverityValue,
+        otxdStatesOmiReadHigh         PerceivedSeverityValue,
+        otxdStatesRfGainReadLow       PerceivedSeverityValue,
+        otxdStatesRfGainReadHigh      PerceivedSeverityValue,
+        otxdStatesObsoleteLow         PerceivedSeverityValue,
+        otxdStatesObsoleteHigh        PerceivedSeverityValue,
+        otxdStatesPlus24VLow          PerceivedSeverityValue,
+        otxdStatesPlus24VHigh         PerceivedSeverityValue,
+        otxdStatesInternalVoltageLow  PerceivedSeverityValue,
+        otxdStatesInternalVoltageHigh PerceivedSeverityValue,
+        otxdStatesWavelengthOfsLow    PerceivedSeverityValue,
+        otxdStatesWavelengthOfsHigh   PerceivedSeverityValue,
+        otxdStatesLaserTempOfsLow     PerceivedSeverityValue,
+        otxdStatesLaserTempOfsHigh    PerceivedSeverityValue,
+        otxdStatesRfAttenLimit        PerceivedSeverityValue,
+        otxdStatesPilotRegLimit       PerceivedSeverityValue,
+        otxdStatesLaserCurrentLow     PerceivedSeverityValue,
+        otxdStatesPowerSupplyLeft     PerceivedSeverityValue,
+        otxdStatesPowerSupplyRight    PerceivedSeverityValue,
+        otxdStatesFanLeft             PerceivedSeverityValue,
+        otxdStatesFanRight            PerceivedSeverityValue,
+        otxdStatesSatInputLow         PerceivedSeverityValue,
+        otxdStatesSatInputHigh        PerceivedSeverityValue,
+        otxdStatesRedundancySwitch    PerceivedSeverityValue,
+        otxdStatesSatOmiReadLow       PerceivedSeverityValue,
+        otxdStatesSatOmiReadHigh      PerceivedSeverityValue,
+        otxdStatesSatRfGainReadLow    PerceivedSeverityValue,
+        otxdStatesSatRfGainReadHigh   PerceivedSeverityValue,
+        otxdStatesSatLnbShortCircuit  PerceivedSeverityValue
+    }
+
+    otxdStatesBootloader OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The device is running in bootloader mode
+             without a legal application software."
+    ::= { otxdStatesEntry 1 }
+
+    otxdStatesCommLoss OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The NEC has lost the connection to the device.
+             Reason may be a removed or defective device.
+             Note that this state is set by the NEC and not
+             by the device"
+    ::= { otxdStatesEntry 2 }
+
+    otxdStatesInitializing OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The device is initializing"
+    ::= { otxdStatesEntry 3 }
+
+    otxdStatesLaserShutdown OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser is shutdown, no optical output"
+    ::= { otxdStatesEntry 4 }
+
+    otxdStatesTemperatureLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device internal temperature low"
+    ::= { otxdStatesEntry 5 }
+
+    otxdStatesTemperatureHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device internal temperature high"
+    ::= { otxdStatesEntry 6 }
+
+    otxdStatesInputLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF input power (total rms) low"
+    ::= { otxdStatesEntry 7 }
+
+    otxdStatesInputHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF input power (total rms) high"
+    ::= { otxdStatesEntry 8 }
+
+    otxdStatesOutputLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical output power low"
+    ::= { otxdStatesEntry 9 }
+
+    otxdStatesOutputHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical output power high"
+    ::= { otxdStatesEntry 10 }
+
+    otxdStatesLaserAging OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser is aging (Laser current high)"
+    ::= { otxdStatesEntry 11 }
+
+    otxdStatesTecLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser heating limit reached"
+    ::= { otxdStatesEntry 12 }
+
+    otxdStatesTecHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser cooling limit reached"
+    ::= { otxdStatesEntry 13 }
+
+    otxdStatesOmiReadLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Omi low"
+    ::= { otxdStatesEntry 14 }
+
+    otxdStatesOmiReadHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Omi high"
+    ::= { otxdStatesEntry 15 }
+
+    otxdStatesRfGainReadLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Rf gain low"
+    ::= { otxdStatesEntry 16 }
+
+    otxdStatesRfGainReadHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Rf gain high"
+    ::= { otxdStatesEntry 17 }
+
+    otxdStatesObsoleteLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "THIS STATE IS OBSOLETE - Always returns clear(5)"
+    ::= { otxdStatesEntry 18 }
+
+    otxdStatesObsoleteHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "THIS STATE IS OBSOLETE - Always returns clear(5)"
+    ::= { otxdStatesEntry 19 }
+
+    otxdStatesPlus24VLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "24 Volt supply low"
+    ::= { otxdStatesEntry 20 }
+
+    otxdStatesPlus24VHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "24 Volt supply high"
+    ::= { otxdStatesEntry 21 }
+
+    otxdStatesInternalVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "An internal voltage too low"
+    ::= { otxdStatesEntry 22 }
+
+    otxdStatesInternalVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "An internal voltage too high"
+    ::= { otxdStatesEntry 23 }
+
+    otxdStatesWavelengthOfsLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Wavelength offset (from nominal wavelength) exceeds low limit"
+    ::= { otxdStatesEntry 24 }
+
+    otxdStatesWavelengthOfsHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Wavelength offset (from nominal wavelength) exceeds high limit"
+    ::= { otxdStatesEntry 25 }
+
+    otxdStatesLaserTempOfsLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser temperature offset (from nominal temperature) exceeds low limit"
+    ::= { otxdStatesEntry 26 }
+
+    otxdStatesLaserTempOfsHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser temperature offset (from nominal temperature) exceeds high limit"
+    ::= { otxdStatesEntry 27 }
+
+    otxdStatesRfAttenLimit OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF attenuator limit reached"
+    ::= { otxdStatesEntry 28 }
+
+    otxdStatesPilotRegLimit OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Pilot regulation limit reached"
+    ::= { otxdStatesEntry 29 }
+
+    otxdStatesLaserCurrentLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser current low"
+    ::= { otxdStatesEntry 30 }
+
+    otxdStatesPowerSupplyLeft OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The left (looking from front) power supply unit fails.
+        Modules that do not have its own fans and power supplies always report clear(5)"
+    ::= { otxdStatesEntry 31 }
+
+    otxdStatesPowerSupplyRight OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The right (looking from front) power supply unit fails.
+        Modules that do not have its own fans and power supplies always report clear(5)"
+    ::= { otxdStatesEntry 32 }
+
+    otxdStatesFanLeft OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The left (looking from front) fan unit fails.
+        Modules that do not have its own fans and power supplies always report clear(5)"
+    ::= { otxdStatesEntry 33 }
+
+    otxdStatesFanRight OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The right (looking from front) fan unit fails.
+        Modules that do not have its own fans and power supplies always report clear(5)"
+    ::= { otxdStatesEntry 34 }
+
+    otxdStatesSatInputLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Sat RF input level (total rms) low.
+            Only used if otxdDisplaySatRfInputSupported == true(1), otherwise always reports clear(5)"
+    ::= { otxdStatesEntry 35 }
+
+    otxdStatesSatInputHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Sat RF input level (total rms) high.
+            Only used if otxdDisplaySatRfInputSupported == true(1), otherwise always reports clear(5)"
+    ::= { otxdStatesEntry 36 }
+
+    otxdStatesRedundancySwitch OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "This (redundant) device has been activated (redundancy switchover)"
+    ::= { otxdStatesEntry 37 }
+
+    otxdStatesSatOmiReadLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Sat Omi low"
+    ::= { otxdStatesEntry 38 }
+
+    otxdStatesSatOmiReadHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Sat Omi high"
+    ::= { otxdStatesEntry 39 }
+
+    otxdStatesSatRfGainReadLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Sat Rf gain low"
+    ::= { otxdStatesEntry 40 }
+
+    otxdStatesSatRfGainReadHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Sat Rf gain high"
+    ::= { otxdStatesEntry 41 }
+
+    otxdStatesSatLnbShortCircuit OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Short-circuit at SAT LNB
+           Only used if otxdDisplaySatLnbSupplySupported != notSupported(1), 
+           otherwise always reports clear(5)."
+    ::= { otxdStatesEntry 42 }
+
+
+--*****************************************************************************************
+--  otxdControl group
+
+    otxdControlTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OtxdControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { otxdControl 1 }
+
+-- table of control entry(ro/rw)
+
+    otxdControlEntry OBJECT-TYPE
+        SYNTAX OtxdControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { otxdNESlot }
+    ::= { otxdControlTable 1 }
+
+-- the structure of the entry
+
+    OtxdControlEntry ::= SEQUENCE
+    {
+        otxdControlLaserShutdown    TruthValue,
+        otxdControlReset            TruthValue,
+        otxdControlModuleLedBlink   TruthValue
+    }
+
+    otxdControlLaserShutdown OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "This parameter is obsolete, always returns 'false(2)' !!!
+             Use 'otxdConfigRedundancyMode' to set the device's redundancy issues.
+             Use 'otxdDisplayDeviceActivity' to read the device's actual activity."
+    ::= { otxdControlEntry 1 }
+
+    otxdControlReset OBJECT-TYPE
+      SYNTAX TruthValue
+      ACCESS read-write
+      STATUS mandatory
+      DESCRIPTION "Reset the module."
+    ::= { otxdControlEntry 2 }
+
+    otxdControlModuleLedBlink OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Writing this variable to true(1) lets the device's
+        modul LED blink green for 10 seconds.
+        Writing this variable to false(2) stops blinking at once.
+        This variable always returns false(2) on read requests"
+    ::= { otxdControlEntry 3 }
+
+--*****************************************************************************************
+-- otxdConfiguration group
+
+    otxdConfigurationTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OtxdConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { otxdConfiguration 1 }
+
+-- table of configuration entry(ro/rw)
+
+    otxdConfigurationEntry OBJECT-TYPE
+        SYNTAX OtxdConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { otxdNESlot  }
+    ::= { otxdConfigurationTable 1 }
+
+-- the structure of the entry
+
+    OtxdConfigurationEntry ::= SEQUENCE
+    {
+        otxdConfigNESlotWrite         NESlotWriteValue,
+        otxdConfigAgcMode             AgcMode,
+        otxdConfigRfMode              RfMode,
+        otxdConfigOmi                 INTEGER,
+        otxdConfigRfGain              INTEGER,
+        otxdConfigRfGainLimit         INTEGER,
+        otxdConfigSlope               INTEGER,
+        otxdConfigFiberLength         INTEGER,
+        otxdConfigPilotFrequency      PilotFrequency,
+        otxdConfigPilotOmi            INTEGER,
+        otxdConfigLaserFrequency      INTEGER,
+        otxdConfigOutputPowerAdj      INTEGER,
+        otxdConfigPilotPskUsage       PilotPskUsageValue,
+        otxdConfigLineCodeNumber      LineCodeNumberValue,
+
+        otxdConfigRfInputLimitLoLo    INTEGER,
+        otxdConfigRfInputLimitLo      INTEGER,
+        otxdConfigRfInputLimitHi      INTEGER,
+        otxdConfigRfInputLimitHiHi    INTEGER,
+
+        otxdConfigRfGainReadLimitLoLo INTEGER,
+        otxdConfigRfGainReadLimitLo   INTEGER,
+        otxdConfigRfGainReadLimitHi   INTEGER,
+        otxdConfigRfGainReadLimitHiHi INTEGER,
+
+        otxdConfigOmiReadLimitLoLo    INTEGER,
+        otxdConfigOmiReadLimitLo      INTEGER,
+        otxdConfigOmiReadLimitHi      INTEGER,
+        otxdConfigOmiReadLimitHiHi    INTEGER,
+
+        otxdConfigOutputPwrLimitLoLo  INTEGER,
+        otxdConfigOutputPwrLimitLo    INTEGER,
+        otxdConfigOutputPwrLimitHi    INTEGER,
+        otxdConfigOutputPwrLimitHiHi  INTEGER,
+
+        otxdConfigWavelenOfsLimitLoLo INTEGER,
+        otxdConfigWavelenOfsLimitLo   INTEGER,
+        otxdConfigWavelenOfsLimitHi   INTEGER,
+        otxdConfigWavelenOfsLimitHiHi INTEGER,
+
+        otxdConfigPilotMode           PilotMode,
+        otxdConfigNarrowCastGain      INTEGER,
+        otxdConfigPilot2Omi           INTEGER,
+        otxdConfigPilot2Mode          PilotMode,
+
+        otxdConfigRedundancyMode      RedundancyMode,
+
+        otxdConfigSatAgcMode          AgcMode,
+        otxdConfigSatOmi              INTEGER,
+        otxdConfigSatRfGain           INTEGER,
+        otxdConfigSatRfGainLimit      INTEGER,
+        otxdConfigSatSlope            INTEGER,
+        otxdConfigSatLnbSupply        LnbSupplyValue,
+
+        otxdConfigRedundancyMask      RedundancyMask,
+        otxdConfigRfInputAlarmMode    RfInputAlarmMode,
+
+        otxdConfigClippingMitigation  INTEGER
+
+    }
+
+    otxdConfigNESlotWrite OBJECT-TYPE
+        SYNTAX NESlotWriteValue
+        ACCESS read-write
+        STATUS optional
+        DESCRIPTION "By writing this variable a slot can be assigned
+            for devices that dont support hardware slot detection.
+            Reading '-1' means that the slot position is NOT writable."
+   ::= { otxdConfigurationEntry 1 }
+
+    otxdConfigAgcMode OBJECT-TYPE
+        SYNTAX AgcMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The AGC mode."
+    ::= { otxdConfigurationEntry 2 }
+
+    otxdConfigRfMode OBJECT-TYPE
+        SYNTAX RfMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The RF mode."
+    ::= { otxdConfigurationEntry 3 }
+
+    otxdConfigOmi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired offset from nominal optical modulation index in 0.1 dB units.
+            This parameter is only used if AGC is on."
+    ::= { otxdConfigurationEntry 4 }
+
+    otxdConfigRfGain OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired offset from nominal gain in 0.1 dB units.
+            This parameter is only used if AGC is off."
+    ::= { otxdConfigurationEntry 5 }
+
+    otxdConfigRfGainLimit OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The maximum offset from nominal gain in 0.1 dB units.
+            This parameter is only used if AGC is off."
+    ::= { otxdConfigurationEntry 6 }
+
+    otxdConfigSlope OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired slope in 0.1 dB units."
+    ::= { otxdConfigurationEntry 7 }
+
+    otxdConfigFiberLength OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The optical fiber length in meter units."
+    ::= { otxdConfigurationEntry 8 }
+
+    otxdConfigPilotFrequency OBJECT-TYPE
+        SYNTAX PilotFrequency
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The pilot frequency."
+    ::= { otxdConfigurationEntry 9 }
+
+    otxdConfigPilotOmi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The pilot omi in 0.1 dB units. (Relative to nomimal value of 5%)"
+    ::= { otxdConfigurationEntry 10 }
+
+    otxdConfigLaserFrequency OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The laser frequency offset from nominal freq. in 0.01 GHz units."
+    ::= { otxdConfigurationEntry 11 }
+
+    otxdConfigOutputPowerAdj OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired optical output power offset from nominal power in 0.1 dB units."
+    ::= { otxdConfigurationEntry 12 }
+
+    otxdConfigPilotPskUsage OBJECT-TYPE
+        SYNTAX PilotPskUsageValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "PSK coding via pilot usage
+             Only usable if otxdDisplayPilotPskSignallingSupported == true(1), otherwise always reports disableAll(2)"
+    ::= { otxdConfigurationEntry 13 }
+
+    otxdConfigLineCodeNumber OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The line code number that the transmitter shall send.
+             This line code number can be used on the remote side
+             optical receiver to identify the connected transmitter.
+             Only usable if otxdDisplayPilotPskSignallingSupported == true(1), otherwise always reports zero"
+    ::= { otxdConfigurationEntry 14 }
+
+-- *****
+    otxdConfigRfInputLimitLoLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The rf input power low alarm limit in 0.1 dBm units"
+    ::={ otxdConfigurationEntry 15 }
+
+    otxdConfigRfInputLimitLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The rf input power low warning limit in 0.1 dBm units"
+    ::={ otxdConfigurationEntry 16 }
+
+    otxdConfigRfInputLimitHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The rf input power high warning limit in 0.1 dBm units"
+    ::={ otxdConfigurationEntry 17 }
+
+    otxdConfigRfInputLimitHiHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The rf input power high alarm limit in 0.1 dBm units"
+    ::={ otxdConfigurationEntry 18 }
+
+-- *****
+    otxdConfigRfGainReadLimitLoLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The rf gain offset low alarm limit in 0.1 dB units (in AGC ON mode)"
+    ::={ otxdConfigurationEntry 19 }
+
+    otxdConfigRfGainReadLimitLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The rf gain offset low warning limit in 0.1 dB units (in AGC ON mode)"
+    ::={ otxdConfigurationEntry 20 }
+
+    otxdConfigRfGainReadLimitHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The rf gain offset high warning limit in 0.1 dB units (in AGC ON mode)"
+    ::={ otxdConfigurationEntry 21 }
+
+    otxdConfigRfGainReadLimitHiHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The rf gain offset high alarm limit in 0.1 dB units (in AGC ON mode)"
+    ::={ otxdConfigurationEntry 22 }
+
+-- *****
+    otxdConfigOmiReadLimitLoLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The omi offset low alarm limit in 0.1 dB units (in AGC OFF mode)"
+    ::={ otxdConfigurationEntry 23 }
+
+    otxdConfigOmiReadLimitLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The omi offset low warning limit in 0.1 dB units(in AGC OFF mode)"
+    ::={ otxdConfigurationEntry 24 }
+
+    otxdConfigOmiReadLimitHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The omi offset high warning limit in 0.1 dB units(in AGC OFF mode)"
+    ::={ otxdConfigurationEntry 25 }
+
+    otxdConfigOmiReadLimitHiHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The omi offset high alarm limit in 0.1 dB units(in AGC OFF mode)"
+    ::={ otxdConfigurationEntry 26 }
+
+-- *****
+    otxdConfigOutputPwrLimitLoLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The output power offset low alarm limit in 0.1 dB units"
+    ::={ otxdConfigurationEntry 27 }
+
+    otxdConfigOutputPwrLimitLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The output power offset low warning limit in 0.1 dB units"
+    ::={ otxdConfigurationEntry 28 }
+
+    otxdConfigOutputPwrLimitHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The output power offset high warning limit in 0.1 dB units"
+    ::={ otxdConfigurationEntry 29 }
+
+    otxdConfigOutputPwrLimitHiHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The output power offset high alarm limit in 0.1 dB units"
+    ::={ otxdConfigurationEntry 30 }
+
+-- *****
+    otxdConfigWavelenOfsLimitLoLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The wavelength offset low alarm limit in 0.01 nm units"
+    ::={ otxdConfigurationEntry 31 }
+
+    otxdConfigWavelenOfsLimitLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The wavelength offset low warning limit in 0.01 nm units"
+    ::={ otxdConfigurationEntry 32 }
+
+    otxdConfigWavelenOfsLimitHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The wavelength offset high warning limit in 0.01 nm units"
+    ::={ otxdConfigurationEntry 33 }
+
+    otxdConfigWavelenOfsLimitHiHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "The wavelength offset high alarm limit in 0.01 nm units"
+    ::={ otxdConfigurationEntry 34 }
+
+-- *****
+    otxdConfigPilotMode OBJECT-TYPE
+        SYNTAX PilotMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Pilot On/Off."
+    ::= { otxdConfigurationEntry 35 }
+
+-- *****
+    otxdConfigNarrowCastGain OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired gain for narrowcast input relative to nominal value in 0.1 dB units.
+            Only usable if otxdDisplayNarrowCastGainSupported == true(1), otherwise always reports zero"
+    ::= { otxdConfigurationEntry 36 }
+
+-- *****
+    otxdConfigPilot2Omi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The secondary pilot's omi in 0.1 dB units. (Relative to nomimal value of 5%)
+            Only usable if otxdDisplayPilot2Supported == true(1), otherwise always reports zero"
+    ::= { otxdConfigurationEntry 37 }
+
+-- *****
+    otxdConfigPilot2Mode OBJECT-TYPE
+        SYNTAX PilotMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Secondary pilot On/Off.
+            Only usable if otxdDisplayPilot2Supported == true(1), otherwise always reports modePilotOff(1)"
+    ::= { otxdConfigurationEntry 38 }
+
+-- *****
+    otxdConfigRedundancyMode OBJECT-TYPE
+        SYNTAX RedundancyMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The device redundancy settings.
+            If otxdDisplayRedundancySupported == false(2), only the modes modeAlwaysActive(1) and modeForceStandby(2) are possible.
+            If otxdDisplayRedundancySupported == true(1), the modes modeNominalMaster(3), modeRedundantSlave(4) and
+            modeNominalRedundantAutomaticBySlot(5) switch device's redundancy ON and adjust its redundancy behaviour."
+    ::= { otxdConfigurationEntry 39 }
+
+-- *****
+    otxdConfigSatAgcMode OBJECT-TYPE
+        SYNTAX AgcMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The SAT AGC mode.
+            This parameter is not supported by all transmitter devices,
+            see otxdDisplaySatExtendedFeaturesSupported"
+    ::= { otxdConfigurationEntry 40 }
+
+    otxdConfigSatOmi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired offset from nominal SAT optical modulation index in 0.1 dB units.
+            This parameter is only used if SAT AGC is on.
+            This parameter is not supported by all transmitter devices,
+            see otxdDisplaySatExtendedFeaturesSupported"
+    ::= { otxdConfigurationEntry 41 }
+
+    otxdConfigSatRfGain OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired offset from nominal SAT gain in 0.1 dB units.
+            This parameter is only used if SAT AGC is off.
+            This parameter is not supported by all transmitter devices,
+            see otxdDisplaySatExtendedFeaturesSupported"
+    ::= { otxdConfigurationEntry 42 }
+
+    otxdConfigSatRfGainLimit OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The maximum offset from nominal SAT gain in 0.1 dB units.
+            This parameter is only used if SAT AGC is off.
+            This parameter is not supported by all transmitter devices,
+            see otxdDisplaySatExtendedFeaturesSupported"
+    ::= { otxdConfigurationEntry 43 }
+
+    otxdConfigSatSlope OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired SAT slope in 0.1 dB units.
+            This parameter is not supported by all transmitter devices,
+            see otxdDisplaySatSlopeSupported"
+    ::= { otxdConfigurationEntry 44 }
+
+    otxdConfigSatLnbSupply OBJECT-TYPE
+        SYNTAX LnbSupplyValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "SAT LNB supply control.
+            This feature is not supported by all transmitter devices,
+            see otxdDisplaySatLnbSupplySupported"
+    ::= { otxdConfigurationEntry 45 }
+
+    otxdConfigRedundancyMask OBJECT-TYPE
+        SYNTAX RedundancyMask
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION   "The device's redundancy mask setings."
+    ::= { otxdConfigurationEntry 46 }
+
+    otxdConfigRfInputAlarmMode OBJECT-TYPE
+        SYNTAX RfInputAlarmMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+          "The RF input alarm mode (Can be used to disable alarms of unused RF inputs)
+           Only usable if ovtxDisplayRfInputCapabilities == rfInputCatvAndSatSupported(3), 
+           otherwise always reports alarmEnableAll(1)"
+    ::= { otxdConfigurationEntry 47 }
+
+    otxdConfigClippingMitigation OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Clipping Mitigation. adjustable from 0 .. 20000, step 500"
+    ::= { otxdConfigurationEntry 48 }
+
+--*****************************************************************************************
+-- Display group
+
+    otxdDisplayTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF OtxdDisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { otxdDisplay 1 }
+
+-- table of configuration entry(ro/rw)
+
+    otxdDisplayEntry OBJECT-TYPE
+        SYNTAX OtxdDisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { otxdNESlot  }
+    ::= { otxdDisplayTable 1 }
+
+-- the structure of the entry
+
+    OtxdDisplayEntry ::= SEQUENCE
+    {
+        otxdDisplayLaserFreqNominal             INTEGER,
+        otxdDisplayLaserFreqMin                 INTEGER,
+        otxdDisplayLaserFreqMax                 INTEGER,
+        otxdDisplayLaserFreqStep                INTEGER,
+
+        otxdDisplayOutputPwrNominal             INTEGER,
+        otxdDisplayOutputPwrMin                 INTEGER,
+        otxdDisplayOutputPwrMax                 INTEGER,
+        otxdDisplayOutputPwrStep                INTEGER,
+
+        otxdDisplayOmiNominal                   INTEGER,
+        otxdDisplayPilot2Frequency              INTEGER,
+        otxdDisplaySatRfInputSupported          TruthValue,
+        otxdDisplayNarrowCastGainSupported      TruthValue,
+        otxdDisplayPilot2Supported              TruthValue,
+        otxdDisplayPilotPskSignallingSupported  TruthValue,
+        otxdDisplayFullTransbusSupported        TruthValue,
+
+        otxdDisplayRedundancySupported          TruthValue,
+        otxdDisplayDeviceRedundancyState        DeviceRedundancyState,
+        otxdDisplayDeviceActivity               DeviceActivityState,
+
+        otxdDisplaySatExtendedFeaturesSupported TruthValue,
+        otxdDisplaySatSlopeSupported            TruthValue,
+        otxdDisplaySatLnbSupplySupported        LnbSupplySupportedValue,
+
+        otxdDisplayPilotAutomaticModeSupported  TruthValue
+    }
+
+    otxdDisplayLaserFreqNominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal laser frequency in 0.01 GHz units."
+    ::={ otxdDisplayEntry 1 }
+
+    otxdDisplayLaserFreqMin OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The minimum adjustable offset from nominal frequency in 0.01 GHz units."
+    ::={ otxdDisplayEntry 2 }
+
+    otxdDisplayLaserFreqMax OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The maximum adjustable offset from nominal frequency in 0.01 GHz units."
+    ::={ otxdDisplayEntry 3 }
+
+    otxdDisplayLaserFreqStep OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "The supported laser frequency stepsize in 0.01 GHz units."
+    ::={ otxdDisplayEntry 4 }
+
+-- *****
+    otxdDisplayOutputPwrNominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal optical output power in 0.1 dBm units."
+    ::={ otxdDisplayEntry 5 }
+
+    otxdDisplayOutputPwrMin OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The minimum adjustable offset from nominal output power in 0.1 dB units."
+    ::={ otxdDisplayEntry 6 }
+
+    otxdDisplayOutputPwrMax OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The maximum adjustable offset from nominal output power in 0.1 dB units."
+    ::={ otxdDisplayEntry 7 }
+
+    otxdDisplayOutputPwrStep OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "The supported output power stepsize in 0.1 dB units."
+    ::={ otxdDisplayEntry 8 }
+
+-- *****
+    otxdDisplayOmiNominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal OMI in 0.1 percent units."
+    ::={ otxdDisplayEntry 9 }
+
+-- *****
+    otxdDisplayPilot2Frequency OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The secondary pilot frequency in kHz units.
+           Returns 0 if the secondary pilot is not supported"
+    ::={ otxdDisplayEntry 10 }
+
+-- *****
+    otxdDisplaySatRfInputSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns true(1) if a separate sat rf input signal is supported by device"
+    ::={ otxdDisplayEntry 11 }
+
+    otxdDisplayNarrowCastGainSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns true(1) if a narrow cast signalling is supported by device"
+    ::={ otxdDisplayEntry 12 }
+
+    otxdDisplayPilot2Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns true(1) if the second pilot signal is supported by device"
+    ::={ otxdDisplayEntry 13 }
+
+    otxdDisplayPilotPskSignallingSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns true(1) if the psk pilot signalling is supported by device"
+    ::={ otxdDisplayEntry 14 }
+
+    otxdDisplayFullTransbusSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns true(1) if a the vendor specific 'full transbus' is supported by device
+            (!! Only for future use !!)"
+    ::={ otxdDisplayEntry 15 }
+
+-- *****
+
+    otxdDisplayRedundancySupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns true(1) if a the device supports redundancy issues"
+    ::={ otxdDisplayEntry 16 }
+
+    otxdDisplayDeviceRedundancyState OBJECT-TYPE
+        SYNTAX  DeviceRedundancyState
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns the device's redundancy state"
+    ::={ otxdDisplayEntry 17 }
+
+    otxdDisplayDeviceActivity OBJECT-TYPE
+        SYNTAX  DeviceActivityState
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns the actual device's activity state"
+    ::={ otxdDisplayEntry 18 }
+
+-- *****
+
+    otxdDisplaySatExtendedFeaturesSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns true(1) if a the device supports the extended
+            sat features (Sat AGC, Sat OMI, Sat RF Gain)"
+    ::={ otxdDisplayEntry 19 }
+
+    otxdDisplaySatSlopeSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns true(1) if a the device supports a sat slope setup"
+    ::={ otxdDisplayEntry 20 }
+
+    otxdDisplaySatLnbSupplySupported OBJECT-TYPE
+        SYNTAX  LnbSupplySupportedValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns the supported LNB supply features"
+    ::={ otxdDisplayEntry 21 }
+
+-- *****
+
+    otxdDisplayPilotAutomaticModeSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns true(1) if a the device supports the pilot automatic mode.
+            If the pilot automatic mode ist adjusted, the pilot signal gets automatically switched on, 
+            if an RF input signal loss condition is detected. Useful for sbs suppression."
+    ::={ otxdDisplayEntry 22 }
+
+END
+
+
+

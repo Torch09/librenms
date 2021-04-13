@@ -1,0 +1,1647 @@
+--- ****************************************************************************
+-- *
+-- * Description:   Implements definitions for the Orx4rfog-RFoG module
+-- *                Optical Receiver with a maximum number of four optical inputs
+-- *                optimized for RFoG (RF over Glass)
+-- *
+-- * Copyright 2010 by BKtel communications GmbH
+-- *
+-- *
+-- *     V.0.1 20.01.2010  M. Heldmann    first draft
+-- *     V.0.2 03.03.2010  M. Heldmann    added HFC mode features DeviceMode, RegulationMode, ...
+-- *     V.0.3 10.07.2013  M. Heldmann    added OBI features
+-- *     V.0.4 05.09.2014  M. Heldmann    changed CommonModuleWidth and ConfigNESlotWrite STATUS to optional
+-- ****************************************************************************
+
+BKTEL-HFC862-ORX4RFOG-V01-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        experimental, enterprises, TimeTicks, IpAddress, Counter
+                 FROM RFC1155-SMI
+    OBJECT-TYPE
+                 FROM RFC-1212
+        TRAP-TYPE
+                 FROM RFC-1215
+        modules, DisplayString, TruthValue, PerceivedSeverityValue, NESlotValue, ModuleWidthValue
+                 FROM   BKTEL-HFC862-BASE-MIB
+    ;
+
+    orx4rfog                 OBJECT IDENTIFIER ::= { modules 119 }
+    orx4rfogCommon           OBJECT IDENTIFIER ::= { orx4rfog 1 }
+    orx4rfogStates           OBJECT IDENTIFIER ::= { orx4rfog 2 }
+    orx4rfogConfiguration    OBJECT IDENTIFIER ::= { orx4rfog 3 }
+    orx4rfogControl          OBJECT IDENTIFIER ::= { orx4rfog 4 }
+    orx4rfogMeasuringValues  OBJECT IDENTIFIER ::= { orx4rfog 5 }
+    orx4rfogDisplay          OBJECT IDENTIFIER ::= { orx4rfog 6 }
+
+
+--
+-- Type definitions
+--
+
+    DeviceModeValue ::= INTEGER
+        {
+        modeRFoG(1),
+        modeHFC(2)
+        }
+
+    RegulationModeValue ::= INTEGER
+        {
+        noRegulationManualSetup(1),
+        inputPowerBasedRegulation(2)
+        }
+
+    ReceiverActivityValue ::= INTEGER
+        {
+        deactivate(1),
+        outputOff(2),
+        outputOn(3),
+        squelched(4) -- automatic
+        }
+
+    SignalOperationModeValue ::= INTEGER
+        {
+        normal(1),
+        squelched(2),
+        obiDetection(3)
+        }
+
+    RfOutputSelectValue ::= INTEGER
+        {
+        individualOutput(1),
+        combinedOutput(2)
+        }
+
+    NESlotWriteValue ::= INTEGER (-1..99)
+
+
+-- MibCompiler defs --
+-- $idx$: InternalVoltage
+-- $idx$: Rx
+-- MibCompiler defs --
+
+
+--*****************************************************************************************
+-- orx4rfogCommon group
+
+    orx4rfogCommonNumberOfModules OBJECT-TYPE
+        SYNTAX  INTEGER(0..50)
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Number of modules in table."
+  ::= { orx4rfogCommon 1 }
+
+    orx4rfogCommonTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Orx4rfogCommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "The table contains all modules of the ORX4RFOG-type in the NE"
+  ::= { orx4rfogCommon 2 }
+
+-- table of states entry(ro/rw)
+
+    orx4rfogCommonEntry OBJECT-TYPE
+        SYNTAX Orx4rfogCommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { orx4rfogNESlot }
+  ::= { orx4rfogCommonTable 1 }
+
+-- the structure of the entry
+
+    Orx4rfogCommonEntry ::= SEQUENCE
+    {
+        orx4rfogNESlot                      NESlotValue,
+        orx4rfogCommonType                  DisplayString,
+        orx4rfogCommonDescr                 DisplayString,
+        orx4rfogCommonFirmwareId            DisplayString,
+        orx4rfogCommonModuleWidth           ModuleWidthValue
+    }
+
+    orx4rfogNESlot OBJECT-TYPE
+        SYNTAX  NESlotValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The slot number of the chassis for which this
+        entry contains management information."
+    ::= { orx4rfogCommonEntry 1 }
+
+    orx4rfogCommonType OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE(0..32))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The type of physical module. modSlotEmpty indicates
+         an empty slot.  A Value of modSlotUnknown indicates
+         that the type of module is unknown."
+    ::= { orx4rfogCommonEntry 2 }
+
+    orx4rfogCommonDescr OBJECT-TYPE
+        SYNTAX  DisplayString
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+        "A textual description of the module.
+        If not available, this Value should be
+        set to a zero length string."
+    ::= { orx4rfogCommonEntry 3 }
+
+    orx4rfogCommonFirmwareId OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..32))
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The firmware Id of the module."
+    ::= { orx4rfogCommonEntry 4 }
+
+    orx4rfogCommonModuleWidth OBJECT-TYPE
+        SYNTAX ModuleWidthValue
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The width of the module in multiples of slots (1, 2, ...)"
+    ::= { orx4rfogCommonEntry 5 }
+
+--*****************************************************************************************
+-- orx4rfogMeasuringValues group
+
+-- table of measuring Values
+
+    orx4rfogMeasuringValuesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Orx4rfogMeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+   ::= { orx4rfogMeasuringValues 1 }
+
+-- table of measuring Values entry
+
+    orx4rfogMeasuringValuesEntry OBJECT-TYPE
+        SYNTAX Orx4rfogMeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { orx4rfogNESlot }
+  ::= { orx4rfogMeasuringValuesTable 1 }
+
+--  the structure of the entry
+
+    Orx4rfogMeasuringValuesEntry ::= SEQUENCE
+    {
+        orx4rfogTemperatureLoLo             INTEGER,
+        orx4rfogTemperatureLo               INTEGER,
+        orx4rfogTemperatureValue            INTEGER,
+        orx4rfogTemperatureHi               INTEGER,
+        orx4rfogTemperatureHiHi             INTEGER,
+
+        orx4rfogInputPowerRx1LoLo           INTEGER,
+        orx4rfogInputPowerRx1Lo             INTEGER,
+        orx4rfogInputPowerRx1Value          INTEGER,
+        orx4rfogInputPowerRx1Hi             INTEGER,
+        orx4rfogInputPowerRx1HiHi           INTEGER,
+                                          
+        orx4rfogInputPowerRx2LoLo           INTEGER,
+        orx4rfogInputPowerRx2Lo             INTEGER,
+        orx4rfogInputPowerRx2Value          INTEGER,
+        orx4rfogInputPowerRx2Hi             INTEGER,
+        orx4rfogInputPowerRx2HiHi           INTEGER,
+                                          
+        orx4rfogInputPowerRx3LoLo           INTEGER,
+        orx4rfogInputPowerRx3Lo             INTEGER,
+        orx4rfogInputPowerRx3Value          INTEGER,
+        orx4rfogInputPowerRx3Hi             INTEGER,
+        orx4rfogInputPowerRx3HiHi           INTEGER,
+                                          
+        orx4rfogInputPowerRx4LoLo           INTEGER,
+        orx4rfogInputPowerRx4Lo             INTEGER,
+        orx4rfogInputPowerRx4Value          INTEGER,
+        orx4rfogInputPowerRx4Hi             INTEGER,
+        orx4rfogInputPowerRx4HiHi           INTEGER,
+
+        orx4rfogRfOutputLevelRx1LoLo        INTEGER,
+        orx4rfogRfOutputLevelRx1Lo          INTEGER,
+        orx4rfogRfOutputLevelRx1Value       INTEGER,
+        orx4rfogRfOutputLevelRx1Hi          INTEGER,
+        orx4rfogRfOutputLevelRx1HiHi        INTEGER,
+                                          
+        orx4rfogRfOutputLevelRx2LoLo        INTEGER,
+        orx4rfogRfOutputLevelRx2Lo          INTEGER,
+        orx4rfogRfOutputLevelRx2Value       INTEGER,
+        orx4rfogRfOutputLevelRx2Hi          INTEGER,
+        orx4rfogRfOutputLevelRx2HiHi        INTEGER,
+                                          
+        orx4rfogRfOutputLevelRx3LoLo        INTEGER,
+        orx4rfogRfOutputLevelRx3Lo          INTEGER,
+        orx4rfogRfOutputLevelRx3Value       INTEGER,
+        orx4rfogRfOutputLevelRx3Hi          INTEGER,
+        orx4rfogRfOutputLevelRx3HiHi        INTEGER,
+                                          
+        orx4rfogRfOutputLevelRx4LoLo        INTEGER,
+        orx4rfogRfOutputLevelRx4Lo          INTEGER,
+        orx4rfogRfOutputLevelRx4Value       INTEGER,
+        orx4rfogRfOutputLevelRx4Hi          INTEGER,
+        orx4rfogRfOutputLevelRx4HiHi        INTEGER,
+
+        orx4rfogInputVoltageLoLo            INTEGER,
+        orx4rfogInputVoltageLo              INTEGER,
+        orx4rfogInputVoltageValue           INTEGER,
+        orx4rfogInputVoltageHi              INTEGER,
+        orx4rfogInputVoltageHiHi            INTEGER,
+
+        orx4rfogInternalVoltage1LoLo        INTEGER,
+        orx4rfogInternalVoltage1Lo          INTEGER,
+        orx4rfogInternalVoltage1Value       INTEGER,
+        orx4rfogInternalVoltage1Hi          INTEGER,
+        orx4rfogInternalVoltage1HiHi        INTEGER,
+                                          
+        orx4rfogInternalVoltage2LoLo        INTEGER,
+        orx4rfogInternalVoltage2Lo          INTEGER,
+        orx4rfogInternalVoltage2Value       INTEGER,
+        orx4rfogInternalVoltage2Hi          INTEGER,
+        orx4rfogInternalVoltage2HiHi        INTEGER,
+                                          
+        orx4rfogInternalVoltage3LoLo        INTEGER,
+        orx4rfogInternalVoltage3Lo          INTEGER,
+        orx4rfogInternalVoltage3Value       INTEGER,
+        orx4rfogInternalVoltage3Hi          INTEGER,
+        orx4rfogInternalVoltage3HiHi        INTEGER,
+                                          
+        orx4rfogInternalVoltage4LoLo        INTEGER,
+        orx4rfogInternalVoltage4Lo          INTEGER,
+        orx4rfogInternalVoltage4Value       INTEGER,
+        orx4rfogInternalVoltage4Hi          INTEGER,
+        orx4rfogInternalVoltage4HiHi        INTEGER
+    }
+
+-- *****
+    orx4rfogTemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature low alarm threshold in 0.1 celsius degrees."
+    ::= { orx4rfogMeasuringValuesEntry 1 }
+
+    orx4rfogTemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature low warning threshold in 0.1 celsius degrees."
+    ::= { orx4rfogMeasuringValuesEntry 2 }
+
+    orx4rfogTemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature in 0.1 celsius degrees."
+    ::= { orx4rfogMeasuringValuesEntry 3 }
+
+    orx4rfogTemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature high warning threshold in 0.1 celsius degrees."
+    ::= { orx4rfogMeasuringValuesEntry 4 }
+
+    orx4rfogTemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature high alarm threshold in 0.1 celsius degrees."
+    ::= { orx4rfogMeasuringValuesEntry 5 }
+
+-- *****
+    orx4rfogInputPowerRx1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low alarm threshold in steps of 0.1dBm (Receiver no.1)."
+    ::= { orx4rfogMeasuringValuesEntry 6 }
+
+    orx4rfogInputPowerRx1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low warning threshold in steps of 0.1dBm (Receiver no.1)."
+    ::= { orx4rfogMeasuringValuesEntry 7 }
+
+    orx4rfogInputPowerRx1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power in steps of 0.1dBm (Receiver no.1)."
+    ::= { orx4rfogMeasuringValuesEntry 8 }
+
+    orx4rfogInputPowerRx1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high warning threshold in steps of 0.1dBm (Receiver no.1)."
+    ::= { orx4rfogMeasuringValuesEntry 9 }
+
+    orx4rfogInputPowerRx1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high alarm threshold in steps of 0.1dBm (Receiver no.1)."
+    ::= { orx4rfogMeasuringValuesEntry 10 }
+
+-- *****
+    orx4rfogInputPowerRx2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low alarm threshold in steps of 0.1dBm (Receiver no.2)."
+    ::= { orx4rfogMeasuringValuesEntry 11 }
+
+    orx4rfogInputPowerRx2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low warning threshold in steps of 0.1dBm (Receiver no.2)."
+    ::= { orx4rfogMeasuringValuesEntry 12 }
+
+    orx4rfogInputPowerRx2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power in steps of 0.1dBm (Receiver no.2)."
+    ::= { orx4rfogMeasuringValuesEntry 13 }
+
+    orx4rfogInputPowerRx2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high warning threshold in steps of 0.1dBm (Receiver no.2)."
+    ::= { orx4rfogMeasuringValuesEntry 14 }
+
+    orx4rfogInputPowerRx2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high alarm threshold in steps of 0.1dBm (Receiver no.2)."
+    ::= { orx4rfogMeasuringValuesEntry 15 }
+
+-- *****
+    orx4rfogInputPowerRx3LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low alarm threshold in steps of 0.1dBm (Receiver no.3)."
+    ::= { orx4rfogMeasuringValuesEntry 16 }
+
+    orx4rfogInputPowerRx3Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low warning threshold in steps of 0.1dBm (Receiver no.3)."
+    ::= { orx4rfogMeasuringValuesEntry 17 }
+
+    orx4rfogInputPowerRx3Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power in steps of 0.1dBm (Receiver no.3)."
+    ::= { orx4rfogMeasuringValuesEntry 18 }
+
+    orx4rfogInputPowerRx3Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high warning threshold in steps of 0.1dBm (Receiver no.3)."
+    ::= { orx4rfogMeasuringValuesEntry 19 }
+
+    orx4rfogInputPowerRx3HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high alarm threshold in steps of 0.1dBm (Receiver no.3)."
+    ::= { orx4rfogMeasuringValuesEntry 20 }
+
+-- *****
+    orx4rfogInputPowerRx4LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low alarm threshold in steps of 0.1dBm (Receiver no.4)."
+    ::= { orx4rfogMeasuringValuesEntry 21 }
+
+    orx4rfogInputPowerRx4Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power low warning threshold in steps of 0.1dBm (Receiver no.4)."
+    ::= { orx4rfogMeasuringValuesEntry 22 }
+
+    orx4rfogInputPowerRx4Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input power in steps of 0.1dBm (Receiver no.4)."
+    ::= { orx4rfogMeasuringValuesEntry 23 }
+
+    orx4rfogInputPowerRx4Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high warning threshold in steps of 0.1dBm (Receiver no.4)."
+    ::= { orx4rfogMeasuringValuesEntry 24 }
+
+    orx4rfogInputPowerRx4HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Input power high alarm threshold in steps of 0.1dBm (Receiver no.4)."
+    ::= { orx4rfogMeasuringValuesEntry 25 }
+
+-- *****
+    orx4rfogRfOutputLevelRx1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level low alarm threshold in steps of 0.1dBmV (Receiver no.1)."
+    ::= { orx4rfogMeasuringValuesEntry 26 }
+
+    orx4rfogRfOutputLevelRx1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level low warning threshold in steps of 0.1dBmV (Receiver no.1)."
+    ::= { orx4rfogMeasuringValuesEntry 27 }
+
+    orx4rfogRfOutputLevelRx1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level in steps of 0.1dBmV (Receiver no.1)."
+    ::= { orx4rfogMeasuringValuesEntry 28 }
+
+    orx4rfogRfOutputLevelRx1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level high warning threshold in steps of 0.1dBmV (Receiver no.1)."
+    ::= { orx4rfogMeasuringValuesEntry 29 }
+
+    orx4rfogRfOutputLevelRx1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level high alarm threshold in steps of 0.1dBmV (Receiver no.1)."
+    ::= { orx4rfogMeasuringValuesEntry 30 }
+
+-- *****
+    orx4rfogRfOutputLevelRx2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level low alarm threshold in steps of 0.1dBmV (Receiver no.2)."
+    ::= { orx4rfogMeasuringValuesEntry 31 }
+
+    orx4rfogRfOutputLevelRx2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level low warning threshold in steps of 0.1dBmV (Receiver no.2)."
+    ::= { orx4rfogMeasuringValuesEntry 32 }
+
+    orx4rfogRfOutputLevelRx2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level in steps of 0.1dBmV (Receiver no.2)."
+    ::= { orx4rfogMeasuringValuesEntry 33 }
+
+    orx4rfogRfOutputLevelRx2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level high warning threshold in steps of 0.1dBmV (Receiver no.2)."
+    ::= { orx4rfogMeasuringValuesEntry 34 }
+
+    orx4rfogRfOutputLevelRx2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level high alarm threshold in steps of 0.1dBmV (Receiver no.2)."
+    ::= { orx4rfogMeasuringValuesEntry 35 }
+
+-- *****
+    orx4rfogRfOutputLevelRx3LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level low alarm threshold in steps of 0.1dBmV (Receiver no.3)."
+    ::= { orx4rfogMeasuringValuesEntry 36 }
+
+    orx4rfogRfOutputLevelRx3Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level low warning threshold in steps of 0.1dBmV (Receiver no.3)."
+    ::= { orx4rfogMeasuringValuesEntry 37 }
+
+    orx4rfogRfOutputLevelRx3Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level in steps of 0.1dBmV (Receiver no.3)."
+    ::= { orx4rfogMeasuringValuesEntry 38 }
+
+    orx4rfogRfOutputLevelRx3Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level high warning threshold in steps of 0.1dBmV (Receiver no.3)."
+    ::= { orx4rfogMeasuringValuesEntry 39 }
+
+    orx4rfogRfOutputLevelRx3HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level high alarm threshold in steps of 0.1dBmV (Receiver no.3)."
+    ::= { orx4rfogMeasuringValuesEntry 40 }
+
+-- *****
+    orx4rfogRfOutputLevelRx4LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level low alarm threshold in steps of 0.1dBmV (Receiver no.4)."
+    ::= { orx4rfogMeasuringValuesEntry 41 }
+
+    orx4rfogRfOutputLevelRx4Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level low warning threshold in steps of 0.1dBmV (Receiver no.4)."
+    ::= { orx4rfogMeasuringValuesEntry 42 }
+
+    orx4rfogRfOutputLevelRx4Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level in steps of 0.1dBmV (Receiver no.4)."
+    ::= { orx4rfogMeasuringValuesEntry 43 }
+
+    orx4rfogRfOutputLevelRx4Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level high warning threshold in steps of 0.1dBmV (Receiver no.4)."
+    ::= { orx4rfogMeasuringValuesEntry 44 }
+
+    orx4rfogRfOutputLevelRx4HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level high alarm threshold in steps of 0.1dBmV (Receiver no.4)."
+    ::= { orx4rfogMeasuringValuesEntry 45 }
+
+-- *****
+    orx4rfogInputVoltageLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V voltage low alarm threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 46 }
+
+    orx4rfogInputVoltageLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V voltage low warning threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 47 }
+
+    orx4rfogInputVoltageValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V voltage in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 48 }
+
+    orx4rfogInputVoltageHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V voltage high warning threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 49 }
+
+    orx4rfogInputVoltageHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The +24V voltage high alarm threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 50 }
+
+-- *****
+    orx4rfogInternalVoltage1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 low alarm threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 51 }
+
+    orx4rfogInternalVoltage1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 low warning threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 52 }
+
+    orx4rfogInternalVoltage1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 in steps of 0.1V.
+                     see orx4rfogDisplayInternalVoltage1Nominal and orx4rfogDisplayInternalVoltage1Supported"
+    ::= { orx4rfogMeasuringValuesEntry 53 }
+
+    orx4rfogInternalVoltage1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 high warning threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 54 }
+
+    orx4rfogInternalVoltage1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 high alarm threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 55 }
+
+-- *****
+    orx4rfogInternalVoltage2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 low alarm threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 56 }
+
+    orx4rfogInternalVoltage2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 low warning threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 57 }
+
+    orx4rfogInternalVoltage2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 in steps of 0.1V.
+                     see orx4rfogDisplayInternalVoltage2Nominal and orx4rfogDisplayInternalVoltage2Supported"
+    ::= { orx4rfogMeasuringValuesEntry 58 }
+
+    orx4rfogInternalVoltage2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 high warning threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 59 }
+
+    orx4rfogInternalVoltage2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 high alarm threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 60 }
+
+-- *****
+    orx4rfogInternalVoltage3LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 low alarm threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 61 }
+
+    orx4rfogInternalVoltage3Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 low warning threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 62 }
+
+    orx4rfogInternalVoltage3Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 in steps of 0.1V.
+                     see orx4rfogDisplayInternalVoltage3Nominal and orx4rfogDisplayInternalVoltage3Supported"
+    ::= { orx4rfogMeasuringValuesEntry 63 }
+
+    orx4rfogInternalVoltage3Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 high warning threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 64 }
+
+    orx4rfogInternalVoltage3HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 high alarm threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 65 }
+
+-- *****
+    orx4rfogInternalVoltage4LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 low alarm threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 66 }
+
+    orx4rfogInternalVoltage4Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 low warning threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 67 }
+
+    orx4rfogInternalVoltage4Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 in steps of 0.1V.
+                     see orx4rfogDisplayInternalVoltage4Nominal and orx4rfogDisplayInternalVoltage4Supported"
+    ::= { orx4rfogMeasuringValuesEntry 68 }
+
+    orx4rfogInternalVoltage4Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 high warning threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 69 }
+
+    orx4rfogInternalVoltage4HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 high alarm threshold in steps of 0.1V."
+    ::= { orx4rfogMeasuringValuesEntry 70 }
+
+--*****************************************************************************************
+--  orx4rfogStates group
+
+-- Note: For every control OId there must be a correspondant alarm OId!
+
+    orx4rfogStatesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Orx4rfogStatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { orx4rfogStates 1 }
+
+-- table of states entry(ro/rw)
+
+    orx4rfogStatesEntry OBJECT-TYPE
+        SYNTAX Orx4rfogStatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { orx4rfogNESlot }
+    ::= { orx4rfogStatesTable 1 }
+
+-- the structure of the entry
+
+    Orx4rfogStatesEntry ::= SEQUENCE
+    {
+        orx4rfogStatesBootloader             PerceivedSeverityValue,
+        orx4rfogStatesCommLoss               PerceivedSeverityValue,
+        orx4rfogStatesTemperatureLow         PerceivedSeverityValue,
+        orx4rfogStatesTemperatureHigh        PerceivedSeverityValue,
+        orx4rfogStatesInputPowerRx1Low       PerceivedSeverityValue,
+        orx4rfogStatesInputPowerRx1High      PerceivedSeverityValue,
+        orx4rfogStatesInputPowerRx2Low       PerceivedSeverityValue,
+        orx4rfogStatesInputPowerRx2High      PerceivedSeverityValue,
+        orx4rfogStatesInputPowerRx3Low       PerceivedSeverityValue,
+        orx4rfogStatesInputPowerRx3High      PerceivedSeverityValue,
+        orx4rfogStatesInputPowerRx4Low       PerceivedSeverityValue,
+        orx4rfogStatesInputPowerRx4High      PerceivedSeverityValue,
+        orx4rfogStatesRfOutputLevelRx1Low    PerceivedSeverityValue,
+        orx4rfogStatesRfOutputLevelRx1High   PerceivedSeverityValue,
+        orx4rfogStatesRfOutputLevelRx2Low    PerceivedSeverityValue,
+        orx4rfogStatesRfOutputLevelRx2High   PerceivedSeverityValue,
+        orx4rfogStatesRfOutputLevelRx3Low    PerceivedSeverityValue,
+        orx4rfogStatesRfOutputLevelRx3High   PerceivedSeverityValue,
+        orx4rfogStatesRfOutputLevelRx4Low    PerceivedSeverityValue,
+        orx4rfogStatesRfOutputLevelRx4High   PerceivedSeverityValue,
+        orx4rfogStatesInputVoltageLow        PerceivedSeverityValue,
+        orx4rfogStatesInputVoltageHigh       PerceivedSeverityValue,
+        orx4rfogStatesInternalVoltage        PerceivedSeverityValue,
+        -- ** Only for 19 inch devices with supply and fan units
+        orx4rfogStatesPowerSupplyLeft        PerceivedSeverityValue,
+        orx4rfogStatesPowerSupplyRight       PerceivedSeverityValue,
+        orx4rfogStatesFanLeft                PerceivedSeverityValue,
+        orx4rfogStatesFanRight               PerceivedSeverityValue
+    }
+
+    orx4rfogStatesBootloader OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The device is running in bootloader mode
+             without a legal application software."
+    ::= { orx4rfogStatesEntry 1 }
+
+    orx4rfogStatesCommLoss OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The NEC has lost the connection to the device.
+             Reason may be a removed or defective device.
+             Note that this state is set by the NEC and not
+             by the device"
+    ::= { orx4rfogStatesEntry 2 }
+
+    orx4rfogStatesTemperatureLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature low"
+    ::= { orx4rfogStatesEntry 3 }
+
+    orx4rfogStatesTemperatureHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device temperature high"
+    ::= { orx4rfogStatesEntry 4 }
+
+    orx4rfogStatesInputPowerRx1Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (receiver no.1) low"
+    ::= { orx4rfogStatesEntry 5 }
+
+    orx4rfogStatesInputPowerRx1High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (receiver no.1) high"
+    ::= { orx4rfogStatesEntry 6 }
+
+    orx4rfogStatesInputPowerRx2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (receiver no.2) low"
+    ::= { orx4rfogStatesEntry 7 }
+
+    orx4rfogStatesInputPowerRx2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (receiver no.2) high"
+    ::= { orx4rfogStatesEntry 8 }
+
+    orx4rfogStatesInputPowerRx3Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (receiver no.3) low"
+    ::= { orx4rfogStatesEntry 9 }
+
+    orx4rfogStatesInputPowerRx3High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (receiver no.3) high"
+    ::= { orx4rfogStatesEntry 10 }
+
+    orx4rfogStatesInputPowerRx4Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (receiver no.4) low"
+    ::= { orx4rfogStatesEntry 11 }
+
+    orx4rfogStatesInputPowerRx4High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical input power (receiver no.4) high"
+    ::= { orx4rfogStatesEntry 12 }
+
+    orx4rfogStatesRfOutputLevelRx1Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level (receiver no.1) low"
+    ::= { orx4rfogStatesEntry 13 }
+
+    orx4rfogStatesRfOutputLevelRx1High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level (receiver no.1) high"
+    ::= { orx4rfogStatesEntry 14 }
+
+    orx4rfogStatesRfOutputLevelRx2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level (receiver no.2) low"
+    ::= { orx4rfogStatesEntry 15 }
+
+    orx4rfogStatesRfOutputLevelRx2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level (receiver no.2) high"
+    ::= { orx4rfogStatesEntry 16 }
+
+    orx4rfogStatesRfOutputLevelRx3Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level (receiver no.3) low"
+    ::= { orx4rfogStatesEntry 17 }
+
+    orx4rfogStatesRfOutputLevelRx3High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level (receiver no.3) high"
+    ::= { orx4rfogStatesEntry 18 }
+
+    orx4rfogStatesRfOutputLevelRx4Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level (receiver no.4) low"
+    ::= { orx4rfogStatesEntry 19 }
+
+    orx4rfogStatesRfOutputLevelRx4High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF output level (receiver no.4) high"
+    ::= { orx4rfogStatesEntry 20 }
+
+    orx4rfogStatesInputVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage low"
+    ::= { orx4rfogStatesEntry 21 }
+
+    orx4rfogStatesInputVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage high"
+    ::= { orx4rfogStatesEntry 22 }
+
+    orx4rfogStatesInternalVoltage OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Internal voltage out of range"
+    ::= { orx4rfogStatesEntry 23 }
+
+    orx4rfogStatesPowerSupplyLeft OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The left (looking from front) power supply unit fails.
+                     Only valid for devices in 19 inch housing"
+    ::= { orx4rfogStatesEntry 24 }
+
+    orx4rfogStatesPowerSupplyRight OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The right (looking from front) power supply unit fails.
+                     Only valid for devices in 19 inch housing"
+    ::= { orx4rfogStatesEntry 25 }
+
+    orx4rfogStatesFanLeft OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The left (looking from front) fan unit fails.
+                     Only valid for devices in 19 inch housing"
+    ::= { orx4rfogStatesEntry 26 }
+
+    orx4rfogStatesFanRight OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The right (looking from front) fan unit fails.
+                     Only valid for devices in 19 inch housing"
+    ::= { orx4rfogStatesEntry 27 }
+
+--*****************************************************************************************
+--  orx4rfogControl group
+
+  orx4rfogControlTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF Orx4rfogControlEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION ""
+  ::= { orx4rfogControl 1 }
+
+-- table of control entry(ro/rw)
+
+  orx4rfogControlEntry OBJECT-TYPE
+    SYNTAX Orx4rfogControlEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION "Alarms for a module."
+    INDEX { orx4rfogNESlot }
+  ::= { orx4rfogControlTable 1 }
+
+-- the structure of the entry
+
+    Orx4rfogControlEntry ::= SEQUENCE
+    {
+        orx4rfogControlReset             TruthValue,
+        orx4rfogControlModuleLedBlink    TruthValue
+    }
+
+    orx4rfogControlReset OBJECT-TYPE
+      SYNTAX TruthValue
+      ACCESS read-write
+      STATUS mandatory
+      DESCRIPTION "Reset the module."
+    ::= { orx4rfogControlEntry 1 }
+
+    orx4rfogControlModuleLedBlink OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION   "Writing this variable to true(1) lets the device's
+        modul LED blink green for 10 seconds.
+        Writing this variable to false(2) storx4rfog blinking at once.
+        This variable always returns false(2) on read requests"
+    ::= { orx4rfogControlEntry 2 }
+
+
+--*****************************************************************************************
+-- orx4rfogConfiguration group
+
+    orx4rfogConfigurationTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Orx4rfogConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { orx4rfogConfiguration 1 }
+
+-- table of configuration entry(ro/rw)
+
+    orx4rfogConfigurationEntry OBJECT-TYPE
+        SYNTAX Orx4rfogConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { orx4rfogNESlot  }
+    ::= { orx4rfogConfigurationTable 1 }
+
+-- the structure of the entry
+
+    Orx4rfogConfigurationEntry ::= SEQUENCE
+    {
+        orx4rfogConfigNESlotWrite            NESlotWriteValue,
+        orx4rfogConfigDeviceMode             DeviceModeValue,
+        orx4rfogConfigReceiverActivityRx1    ReceiverActivityValue,
+        orx4rfogConfigReceiverActivityRx2    ReceiverActivityValue,
+        orx4rfogConfigReceiverActivityRx3    ReceiverActivityValue,
+        orx4rfogConfigReceiverActivityRx4    ReceiverActivityValue,
+        orx4rfogConfigRfOutputSelectRx1      RfOutputSelectValue,
+        orx4rfogConfigRfOutputSelectRx2      RfOutputSelectValue,
+        orx4rfogConfigRfOutputSelectRx3      RfOutputSelectValue,
+        orx4rfogConfigRfOutputSelectRx4      RfOutputSelectValue,
+        orx4rfogConfigRegulationModeRx1      RegulationModeValue,
+        orx4rfogConfigRegulationModeRx2      RegulationModeValue,
+        orx4rfogConfigRegulationModeRx3      RegulationModeValue,
+        orx4rfogConfigRegulationModeRx4      RegulationModeValue,
+        orx4rfogConfigRfGainRx1              INTEGER,
+        orx4rfogConfigRfGainRx2              INTEGER,
+        orx4rfogConfigRfGainRx3              INTEGER,
+        orx4rfogConfigRfGainRx4              INTEGER,
+        orx4rfogConfigRfOutputLevelOffsetRx1 INTEGER,
+        orx4rfogConfigRfOutputLevelOffsetRx2 INTEGER,
+        orx4rfogConfigRfOutputLevelOffsetRx3 INTEGER,
+        orx4rfogConfigRfOutputLevelOffsetRx4 INTEGER,
+        orx4rfogConfigSquelchLevelRx1        INTEGER,
+        orx4rfogConfigSquelchLevelRx2        INTEGER,
+        orx4rfogConfigSquelchLevelRx3        INTEGER,
+        orx4rfogConfigSquelchLevelRx4        INTEGER,
+        orx4rfogConfigSignalOperationMode    SignalOperationModeValue,
+        orx4rfogConfigObiDetectionClear      INTEGER
+    }
+
+    orx4rfogConfigNESlotWrite OBJECT-TYPE
+        SYNTAX NESlotWriteValue
+        ACCESS read-write
+        STATUS optional
+        DESCRIPTION "By writing this variable a slot can be assigned
+            for devices that dont support hardware slot detection.
+            Reading '-1' means that the slot position is NOT writable."
+    ::= { orx4rfogConfigurationEntry 1 }
+
+    orx4rfogConfigDeviceMode OBJECT-TYPE
+        SYNTAX DeviceModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The device mode (RFoG or HFC). 
+             Only changeable if orx4rfogDisplayDeviceModeAdjustable == true(1)"
+    ::= { orx4rfogConfigurationEntry 2 }
+
+    orx4rfogConfigReceiverActivityRx1 OBJECT-TYPE
+        SYNTAX ReceiverActivityValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Activity setting (Receiver no.1).
+             NOTE: squelched(4) is not supported if 
+             orx4rfogDisplayHardwareOptimizedForObiDetection == true(1)"
+    ::= { orx4rfogConfigurationEntry 3 }
+
+    orx4rfogConfigReceiverActivityRx2 OBJECT-TYPE
+        SYNTAX ReceiverActivityValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Activity setting (Receiver no.2).
+             NOTE: squelched(4) is not supported if 
+             orx4rfogDisplayHardwareOptimizedForObiDetection == true(1)"
+    ::= { orx4rfogConfigurationEntry 4 }
+
+    orx4rfogConfigReceiverActivityRx3 OBJECT-TYPE
+        SYNTAX ReceiverActivityValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Activity setting (Receiver no.3).
+             NOTE: squelched(4) is not supported if 
+             orx4rfogDisplayHardwareOptimizedForObiDetection == true(1)"
+    ::= { orx4rfogConfigurationEntry 5 }
+
+    orx4rfogConfigReceiverActivityRx4 OBJECT-TYPE
+        SYNTAX ReceiverActivityValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Activity setting (Receiver no.4).
+             NOTE: squelched(4) is not supported if 
+             orx4rfogDisplayHardwareOptimizedForObiDetection == true(1)"
+    ::= { orx4rfogConfigurationEntry 6 }
+
+    orx4rfogConfigRfOutputSelectRx1 OBJECT-TYPE
+        SYNTAX RfOutputSelectValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF output select (Receiver no.1)."
+    ::= { orx4rfogConfigurationEntry 7 }
+
+    orx4rfogConfigRfOutputSelectRx2 OBJECT-TYPE
+        SYNTAX RfOutputSelectValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF output select (Receiver no.2)."
+    ::= { orx4rfogConfigurationEntry 8 }
+
+    orx4rfogConfigRfOutputSelectRx3 OBJECT-TYPE
+        SYNTAX RfOutputSelectValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF output select (Receiver no.3)."
+    ::= { orx4rfogConfigurationEntry 9 }
+
+    orx4rfogConfigRfOutputSelectRx4 OBJECT-TYPE
+        SYNTAX RfOutputSelectValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF output select (Receiver no.4)."
+    ::= { orx4rfogConfigurationEntry 10 }
+
+    orx4rfogConfigRegulationModeRx1 OBJECT-TYPE
+        SYNTAX RegulationModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Regulation mode (Receiver no.1).
+             Only changeable if orx4rfogDisplayRegulationModeAdjustable == true(1)"
+    ::= { orx4rfogConfigurationEntry 11 }
+
+    orx4rfogConfigRegulationModeRx2 OBJECT-TYPE
+        SYNTAX RegulationModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Regulation mode (Receiver no.2).
+             Only changeable if orx4rfogDisplayRegulationModeAdjustable == true(1)"
+    ::= { orx4rfogConfigurationEntry 12 }
+
+    orx4rfogConfigRegulationModeRx3 OBJECT-TYPE
+        SYNTAX RegulationModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Regulation mode (Receiver no.3).
+             Only changeable if orx4rfogDisplayRegulationModeAdjustable == true(1)"
+    ::= { orx4rfogConfigurationEntry 13 }
+
+    orx4rfogConfigRegulationModeRx4 OBJECT-TYPE
+        SYNTAX RegulationModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Regulation mode (Receiver no.4).
+             Only changeable if orx4rfogDisplayRegulationModeAdjustable == true(1)"
+    ::= { orx4rfogConfigurationEntry 14 }
+
+    orx4rfogConfigRfGainRx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF gain in steps of 0.1dB (Receiver no.1).
+             Only valid if orx4rfogConfigRegulationModeRx1 == noRegulationManualSetup(1)"
+    ::= { orx4rfogConfigurationEntry 15 }
+
+    orx4rfogConfigRfGainRx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF gain in steps of 0.1dB (Receiver no.2).
+             Only valid if orx4rfogConfigRegulationModeRx2 == noRegulationManualSetup(1)"
+    ::= { orx4rfogConfigurationEntry 16 }
+
+    orx4rfogConfigRfGainRx3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF gain in steps of 0.1dB (Receiver no.3).
+             Only valid if orx4rfogConfigRegulationModeRx3 == noRegulationManualSetup(1)"
+    ::= { orx4rfogConfigurationEntry 17 }
+
+    orx4rfogConfigRfGainRx4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF gain in steps of 0.1dB (Receiver no.4).
+             Only valid if orx4rfogConfigRegulationModeRx4 == noRegulationManualSetup(1)"
+    ::= { orx4rfogConfigurationEntry 18 }
+
+    orx4rfogConfigRfOutputLevelOffsetRx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF output level offset in steps of 0.1dB (Receiver no.1).
+             Only valid if orx4rfogConfigRegulationModeRx1 == inputPowerBasedRegulation(2)"
+    ::= { orx4rfogConfigurationEntry 19 }
+
+    orx4rfogConfigRfOutputLevelOffsetRx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF output level offset in steps of 0.1dB (Receiver no.2).
+             Only valid if orx4rfogConfigRegulationModeRx2 == inputPowerBasedRegulation(2)"
+    ::= { orx4rfogConfigurationEntry 20 }
+
+    orx4rfogConfigRfOutputLevelOffsetRx3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF output level offset in steps of 0.1dB (Receiver no.3).
+             Only valid if orx4rfogConfigRegulationModeRx3 == inputPowerBasedRegulation(2)"
+    ::= { orx4rfogConfigurationEntry 21 }
+
+    orx4rfogConfigRfOutputLevelOffsetRx4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "RF output level offset in steps of 0.1dB (Receiver no.4).
+             Only valid if orx4rfogConfigRegulationModeRx4 == inputPowerBasedRegulation(2)"
+    ::= { orx4rfogConfigurationEntry 22 }
+
+    orx4rfogConfigSquelchLevelRx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Squelch level in steps of 0.1dBmV (Receiver no.1)."
+    ::= { orx4rfogConfigurationEntry 23 }
+
+    orx4rfogConfigSquelchLevelRx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Squelch level in steps of 0.1dBmV (Receiver no.2)."
+    ::= { orx4rfogConfigurationEntry 24 }
+
+    orx4rfogConfigSquelchLevelRx3 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Squelch level in steps of 0.1dBmV (Receiver no.3)."
+    ::= { orx4rfogConfigurationEntry 25 }
+
+    orx4rfogConfigSquelchLevelRx4 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Squelch level in steps of 0.1dBmV (Receiver no.4)."
+    ::= { orx4rfogConfigurationEntry 26 }
+
+    orx4rfogConfigSignalOperationMode OBJECT-TYPE
+        SYNTAX SignalOperationModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Signal operation mode
+             Only usable if orx4rfogDisplayHardwareOptimizedForObiDetection == true(1)
+             otherwise always reports normal(1)"
+    ::= { orx4rfogConfigurationEntry 27 }
+
+    orx4rfogConfigObiDetectionClear OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Clears OBI intensity maxhold values, always reports zero on read
+             Bitfield: 
+               Bit 0: Clear receiver no. 1
+               Bit 1: Clear receiver no. 2
+               Bit 2: Clear receiver no. 3
+               Bit 3: Clear receiver no. 4
+             Only usable if orx4rfogDisplayObiDetectionSupported == true(1)"
+    ::= { orx4rfogConfigurationEntry 28 }
+
+
+--*****************************************************************************************
+-- Display group
+
+    orx4rfogDisplayTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Orx4rfogDisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { orx4rfogDisplay 1 }
+
+-- table of configuration entry(ro/rw)
+
+    orx4rfogDisplayEntry OBJECT-TYPE
+        SYNTAX Orx4rfogDisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { orx4rfogNESlot  }
+    ::= { orx4rfogDisplayTable 1 }
+
+-- the structure of the entry
+
+    Orx4rfogDisplayEntry ::= SEQUENCE
+    {
+        orx4rfogDisplayDeviceModeAdjustable        TruthValue,
+        orx4rfogDisplayRegulationModeAdjustable    TruthValue,
+
+        orx4rfogDisplayReceiverRx1Assembled        TruthValue,
+        orx4rfogDisplayReceiverRx2Assembled        TruthValue,
+        orx4rfogDisplayReceiverRx3Assembled        TruthValue,
+        orx4rfogDisplayReceiverRx4Assembled        TruthValue,
+
+        orx4rfogDisplayInternalVoltage1Supported   TruthValue,
+        orx4rfogDisplayInternalVoltage2Supported   TruthValue,
+        orx4rfogDisplayInternalVoltage3Supported   TruthValue,
+        orx4rfogDisplayInternalVoltage4Supported   TruthValue,
+                                                
+        orx4rfogDisplayInputVoltageNominal         INTEGER,
+        orx4rfogDisplayInternalVoltage1Nominal     INTEGER,
+        orx4rfogDisplayInternalVoltage2Nominal     INTEGER,
+        orx4rfogDisplayInternalVoltage3Nominal     INTEGER,
+        orx4rfogDisplayInternalVoltage4Nominal     INTEGER,
+
+        orx4rfogDisplayHardwareOptimizedForObiDetection TruthValue,
+        orx4rfogDisplayObiDetectionSupported            TruthValue,
+        orx4rfogDisplayObiIntensityRx1                  INTEGER,
+        orx4rfogDisplayObiIntensityRx2                  INTEGER,
+        orx4rfogDisplayObiIntensityRx3                  INTEGER,
+        orx4rfogDisplayObiIntensityRx4                  INTEGER,
+        orx4rfogDisplayObiIntensityMaxHoldRx1           INTEGER,
+        orx4rfogDisplayObiIntensityMaxHoldRx2           INTEGER,
+        orx4rfogDisplayObiIntensityMaxHoldRx3           INTEGER,
+        orx4rfogDisplayObiIntensityMaxHoldRx4           INTEGER
+    }
+
+    orx4rfogDisplayDeviceModeAdjustable OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if orx4rfogConfigDeviceMode is adjustable"
+    ::={ orx4rfogDisplayEntry 1 }
+
+    orx4rfogDisplayRegulationModeAdjustable OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if orx4rfogConfigRegulationModeRx* is adjustable"
+    ::={ orx4rfogDisplayEntry 2 }
+
+    orx4rfogDisplayReceiverRx1Assembled OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if receiver no. 1 is assembled"
+    ::={ orx4rfogDisplayEntry 3 }
+
+    orx4rfogDisplayReceiverRx2Assembled OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if receiver no. 2 is assembled"
+    ::={ orx4rfogDisplayEntry 4 }
+
+    orx4rfogDisplayReceiverRx3Assembled OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if receiver no. 3 is assembled"
+    ::={ orx4rfogDisplayEntry 5 }
+
+    orx4rfogDisplayReceiverRx4Assembled OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if receiver no. 4 is assembled"
+    ::={ orx4rfogDisplayEntry 6 }
+
+    orx4rfogDisplayInternalVoltage1Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 1 is supported"
+    ::={ orx4rfogDisplayEntry 7 }
+
+    orx4rfogDisplayInternalVoltage2Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 2 is supported"
+    ::={ orx4rfogDisplayEntry 8 }
+
+    orx4rfogDisplayInternalVoltage3Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 3 is supported"
+    ::={ orx4rfogDisplayEntry 9 }
+
+    orx4rfogDisplayInternalVoltage4Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 4 is supported"
+    ::={ orx4rfogDisplayEntry 10 }
+
+    orx4rfogDisplayInputVoltageNominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal input voltage"
+    ::={ orx4rfogDisplayEntry 11 }
+
+    orx4rfogDisplayInternalVoltage1Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 1"
+    ::={ orx4rfogDisplayEntry 12 }
+
+    orx4rfogDisplayInternalVoltage2Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 2"
+    ::={ orx4rfogDisplayEntry 13 }
+
+    orx4rfogDisplayInternalVoltage3Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 3"
+    ::={ orx4rfogDisplayEntry 14 }
+
+    orx4rfogDisplayInternalVoltage4Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 4"
+    ::={ orx4rfogDisplayEntry 15 }
+
+    orx4rfogDisplayHardwareOptimizedForObiDetection OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if hardware is optimized for OBI detection"
+    ::={ orx4rfogDisplayEntry 16 }
+
+    orx4rfogDisplayObiDetectionSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if OBI detection feature is supported"
+    ::={ orx4rfogDisplayEntry 17 }
+
+    orx4rfogDisplayObiIntensityRx1 OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Current OBI intensity receiver no. 1
+                     Only usable if orx4rfogDisplayObiDetectionSupported == true(1)
+                     otherwise always reports 0"
+    ::={ orx4rfogDisplayEntry 18 }
+
+    orx4rfogDisplayObiIntensityRx2 OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Current OBI intensity receiver no. 2
+                     Only usable if orx4rfogDisplayObiDetectionSupported == true(1)
+                     otherwise always reports 0"
+    ::={ orx4rfogDisplayEntry 19 }
+    
+    orx4rfogDisplayObiIntensityRx3 OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Current OBI intensity receiver no. 3
+                     Only usable if orx4rfogDisplayObiDetectionSupported == true(1)
+                     otherwise always reports 0"
+    ::={ orx4rfogDisplayEntry 20 }
+    
+    orx4rfogDisplayObiIntensityRx4 OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Current OBI intensity receiver no. 4
+                     Only usable if orx4rfogDisplayObiDetectionSupported == true(1)
+                     otherwise always reports 0"
+    ::={ orx4rfogDisplayEntry 21 }
+
+    orx4rfogDisplayObiIntensityMaxHoldRx1 OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Max hold value of OBI intensity receiver no. 1
+                     Can be reset to zero using orx4rfogConfigObiDetectionClear
+                     Only usable if orx4rfogDisplayObiDetectionSupported == true(1)
+                     otherwise always reports 0"
+    ::={ orx4rfogDisplayEntry 22 }
+    
+    orx4rfogDisplayObiIntensityMaxHoldRx2 OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Max hold value of OBI intensity receiver no. 2
+                     Can be reset to zero using orx4rfogConfigObiDetectionClear
+                     Only usable if orx4rfogDisplayObiDetectionSupported == true(1)
+                     otherwise always reports 0"
+    ::={ orx4rfogDisplayEntry 23 }
+    
+    orx4rfogDisplayObiIntensityMaxHoldRx3 OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Max hold value of OBI intensity receiver no. 3
+                     Can be reset to zero using orx4rfogConfigObiDetectionClear
+                     Only usable if orx4rfogDisplayObiDetectionSupported == true(1)
+                     otherwise always reports 0"
+    ::={ orx4rfogDisplayEntry 24 }
+    
+    orx4rfogDisplayObiIntensityMaxHoldRx4 OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Max hold value of OBI intensity receiver no. 4
+                     Can be reset to zero using orx4rfogConfigObiDetectionClear
+                     Only usable if orx4rfogDisplayObiDetectionSupported == true(1)
+                     otherwise always reports 0"
+    ::={ orx4rfogDisplayEntry 25 }
+    
+
+
+--*****************************************************************************************
+END

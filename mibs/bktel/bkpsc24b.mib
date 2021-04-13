@@ -1,0 +1,797 @@
+-- *********************************************************************************************
+-- *
+-- * Description:   Implements definitions for the PSC24B
+-- *                (Power Converter 24 Volt)
+-- *
+-- * Copyright 2005 by BKtel communications GmbH
+-- *
+-- *     V 0.1  24.08.2005  M. Heldmann first draft
+-- *     V 0.1  24.08.2005  M. Heldmann made some thresholds of psc24bMeasuringValuesTable read-write
+-- *     V.0.2  04.10.2006  M. Heldmann NESlotWriteValue expanded due to new 2G6 platform needs
+-- *     V.0.3  23.11.2006  M. Heldmann added psc24bConfigNESlotWrite
+-- *     V.0.4  11.07.2013  M. Heldmann adjusted syntax of "CommonEntry" to remove MIB compiler warnings
+-- *     V.0.5  05.09.2014  M. Heldmann changed CommonModuleWidth and ConfigNESlotWrite STATUS to optional
+-- *********************************************************************************************
+
+BKTEL-HFC862-PSC24B-V01-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        experimental, enterprises, TimeTicks, IpAddress, Counter
+                 FROM RFC1155-SMI
+    OBJECT-TYPE
+                 FROM RFC-1212
+        TRAP-TYPE
+                 FROM RFC-1215
+        modules, DisplayString, TruthValue, PerceivedSeverityValue, NESlotValue, ModuleWidthValue
+                 FROM   BKTEL-HFC862-BASE-MIB
+    ;
+
+    psc24b                 OBJECT IDENTIFIER ::= { modules 111 }
+    psc24bCommon           OBJECT IDENTIFIER ::= { psc24b 1 }
+    psc24bStates           OBJECT IDENTIFIER ::= { psc24b 2 }
+    psc24bConfiguration    OBJECT IDENTIFIER ::= { psc24b 3 }
+    psc24bControl          OBJECT IDENTIFIER ::= { psc24b 4 }
+    psc24bMeasuringValues  OBJECT IDENTIFIER ::= { psc24b 5 }
+    psc24bDisplay          OBJECT IDENTIFIER ::= { psc24b 6 }
+
+
+--
+-- Type definitions
+--
+
+    NESlotWriteValue ::= INTEGER (-1..99)
+
+
+
+-- psc24bCommon group
+
+    psc24bCommonNumberOfModules OBJECT-TYPE
+        SYNTAX  INTEGER(0..50)
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Number of modules in table."
+    ::= { psc24bCommon 1 }
+
+    psc24bCommonTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc24bCommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "The table contains all modules of the PSC24B-type in the NE"
+    ::= { psc24bCommon 2 }
+
+-- table of states entry(ro/rw)
+
+    psc24bCommonEntry OBJECT-TYPE
+        SYNTAX Psc24bCommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { psc24bNESlot }
+    ::= { psc24bCommonTable 1 }
+
+-- the structure of the entry
+
+    Psc24bCommonEntry ::= SEQUENCE
+    {
+        psc24bNESlot                      NESlotValue,
+        psc24bCommonType                  DisplayString,
+        psc24bCommonDescr                 DisplayString,
+        psc24bCommonFirmwareId            DisplayString,
+        psc24bCommonModuleWidth           ModuleWidthValue
+    }
+
+    psc24bNESlot OBJECT-TYPE
+        SYNTAX  NESlotValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The slot number of the chassis for which this
+        entry contains management information.
+        Equal to: modOTXDv11UniqueID"
+    ::= { psc24bCommonEntry 1 }
+
+    psc24bCommonType OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE(0..32))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The type of physical module."
+    ::= { psc24bCommonEntry 2 }
+
+    psc24bCommonDescr OBJECT-TYPE
+        SYNTAX  DisplayString
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+        "A textual description of the module.
+        If not available, this Value should be
+        set to a zero length string."
+    ::= { psc24bCommonEntry 3 }
+
+    psc24bCommonFirmwareId OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..32))
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The firmware Id of the module."
+    ::= { psc24bCommonEntry 4 }
+
+    psc24bCommonModuleWidth OBJECT-TYPE
+        SYNTAX ModuleWidthValue
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION
+        "The width of the module in multiples of slots (1, 2, ...)
+        Returns 0 for special housings (for example 19inch, etc...)"
+    ::= { psc24bCommonEntry 5 }
+
+
+--*****************************************************************************************
+--  psc24bStates group
+
+    psc24bStatesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc24bStatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { psc24bStates 1 }
+
+-- table of states entry(ro/rw)
+
+    psc24bStatesEntry OBJECT-TYPE
+        SYNTAX Psc24bStatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { psc24bNESlot }
+    ::= { psc24bStatesTable 1 }
+
+-- the structure of the entry
+
+    Psc24bStatesEntry ::= SEQUENCE
+    {
+        psc24bStatesBootloader          PerceivedSeverityValue,
+        psc24bStatesCommLoss            PerceivedSeverityValue,
+        psc24bStatesInputVoltageLow     PerceivedSeverityValue,
+        psc24bStatesInputVoltageHigh    PerceivedSeverityValue,
+        psc24bStatesOutputVoltageLow    PerceivedSeverityValue,
+        psc24bStatesOutputVoltageHigh   PerceivedSeverityValue,
+        psc24bStatesOutputCurrentLow    PerceivedSeverityValue,
+        psc24bStatesOutputCurrentHigh   PerceivedSeverityValue,
+        psc24bStatesOutputVoltage2Low   PerceivedSeverityValue,
+        psc24bStatesOutputVoltage2High  PerceivedSeverityValue,
+        psc24bStatesOutputCurrent2Low   PerceivedSeverityValue,
+        psc24bStatesOutputCurrent2High  PerceivedSeverityValue,
+        psc24bStatesPlus3p3VLow         PerceivedSeverityValue,
+        psc24bStatesPlus3p3VHigh        PerceivedSeverityValue,
+        psc24bStatesPlus5VLow           PerceivedSeverityValue,
+        psc24bStatesPlus5VHigh          PerceivedSeverityValue,
+        psc24bStatesTemperatureLow      PerceivedSeverityValue,
+        psc24bStatesTemperatureHigh     PerceivedSeverityValue
+    }
+
+    psc24bStatesBootloader OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The device is running in bootloader mode
+             without a legal application software."
+    ::= { psc24bStatesEntry 1 }
+
+    psc24bStatesCommLoss OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The NEC has lost the connection to the device.
+             Reason may be a removed or defective device.
+             Note that this state is set by the NEC and not
+             by the device"
+    ::= { psc24bStatesEntry 2 }
+
+    psc24bStatesInputVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage low"
+    ::= { psc24bStatesEntry 3 }
+
+    psc24bStatesInputVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage high"
+    ::= { psc24bStatesEntry 4 }
+
+    psc24bStatesOutputVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Main output voltage low"
+    ::= { psc24bStatesEntry 5 }
+
+    psc24bStatesOutputVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Main output voltage high"
+    ::= { psc24bStatesEntry 6 }
+
+    psc24bStatesOutputCurrentLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Main output current low"
+    ::= { psc24bStatesEntry 7 }
+
+    psc24bStatesOutputCurrentHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Main output current high"
+    ::= { psc24bStatesEntry 8 }
+
+    psc24bStatesOutputVoltage2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Secondary output voltage low"
+    ::= { psc24bStatesEntry 9 }
+
+    psc24bStatesOutputVoltage2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Secondary output voltage high"
+    ::= { psc24bStatesEntry 10 }
+
+    psc24bStatesOutputCurrent2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Secondary output current low"
+    ::= { psc24bStatesEntry 11 }
+
+    psc24bStatesOutputCurrent2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Secondary output current high"
+    ::= { psc24bStatesEntry 12 }
+
+    psc24bStatesPlus3p3VLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "3.3 Volt internal voltage low"
+    ::= { psc24bStatesEntry 13 }
+
+    psc24bStatesPlus3p3VHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "3.3 Volt internal voltage high"
+    ::= { psc24bStatesEntry 14 }
+
+    psc24bStatesPlus5VLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "5 Volt internal voltage low"
+    ::= { psc24bStatesEntry 15 }
+
+    psc24bStatesPlus5VHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "5 Volt internal voltage high"
+    ::= { psc24bStatesEntry 16 }
+
+    psc24bStatesTemperatureLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Internal temperature low"
+    ::= { psc24bStatesEntry 17 }
+
+    psc24bStatesTemperatureHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Internal temperature high"
+    ::= { psc24bStatesEntry 18 }
+
+
+--*****************************************************************************************
+--  psc24bControl group
+
+    psc24bControlTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc24bControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { psc24bControl 1 }
+
+-- table of control entry(ro/rw)
+
+    psc24bControlEntry OBJECT-TYPE
+        SYNTAX Psc24bControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { psc24bNESlot }
+    ::= { psc24bControlTable 1 }
+
+-- the structure of the entry
+
+    Psc24bControlEntry ::= SEQUENCE
+    {
+        psc24bControlReset            TruthValue,
+        psc24bControlModuleLedBlink   TruthValue
+    }
+
+    psc24bControlReset OBJECT-TYPE
+      SYNTAX TruthValue
+      ACCESS read-write
+      STATUS mandatory
+      DESCRIPTION "Reset the module."
+    ::= { psc24bControlEntry 1 }
+
+    psc24bControlModuleLedBlink OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Writing this variable to true(1) lets the device's
+        modul LED blink green for 10 seconds.
+        Writing this variable to false(2) stops blinking at once.
+        This variable always returns false(2) on read requests"
+    ::= { psc24bControlEntry 2 }
+
+
+--*****************************************************************************************
+-- psc24bConfiguration group
+
+    psc24bConfigurationTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc24bConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { psc24bConfiguration 1 }
+
+-- table of configuration entry(ro/rw)
+
+    psc24bConfigurationEntry OBJECT-TYPE
+        SYNTAX Psc24bConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { psc24bNESlot  }
+    ::= { psc24bConfigurationTable 1 }
+
+-- the structure of the entry
+
+    Psc24bConfigurationEntry ::= SEQUENCE
+    {
+        psc24bConfigNESlotWrite                  NESlotWriteValue
+    }
+
+    psc24bConfigNESlotWrite OBJECT-TYPE
+        SYNTAX NESlotWriteValue
+        ACCESS read-write
+        STATUS optional
+        DESCRIPTION "By writing this variable a slot can be assigned
+            for devices that dont support hardware slot detection.
+            Reading '-1' means that the slot position is NOT writable."
+    ::= { psc24bConfigurationEntry 1 }
+
+
+--*****************************************************************************************
+-- psc24bMeasuringValues group
+
+-- table of measuring Values
+
+    psc24bMeasuringValuesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc24bMeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+   ::= { psc24bMeasuringValues 1 }
+
+-- table of measuring Values entry
+
+    psc24bMeasuringValuesEntry OBJECT-TYPE
+        SYNTAX Psc24bMeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { psc24bNESlot }
+  ::= { psc24bMeasuringValuesTable 1 }
+
+--  the structure of the entry
+
+    Psc24bMeasuringValuesEntry ::= SEQUENCE
+    {
+        psc24bInputVoltageLoLo    INTEGER,
+        psc24bInputVoltageLo      INTEGER,
+        psc24bInputVoltageValue   INTEGER,
+        psc24bInputVoltageHi      INTEGER,
+        psc24bInputVoltageHiHi    INTEGER,
+
+        psc24bOutputVoltageLoLo   INTEGER,
+        psc24bOutputVoltageLo     INTEGER,
+        psc24bOutputVoltageValue  INTEGER,
+        psc24bOutputVoltageHi     INTEGER,
+        psc24bOutputVoltageHiHi   INTEGER,
+
+        psc24bOutputCurrentLoLo   INTEGER,
+        psc24bOutputCurrentLo     INTEGER,
+        psc24bOutputCurrentValue  INTEGER,
+        psc24bOutputCurrentHi     INTEGER,
+        psc24bOutputCurrentHiHi   INTEGER,
+
+        psc24bOutputVoltage2LoLo  INTEGER,
+        psc24bOutputVoltage2Lo    INTEGER,
+        psc24bOutputVoltage2Value INTEGER,
+        psc24bOutputVoltage2Hi    INTEGER,
+        psc24bOutputVoltage2HiHi  INTEGER,
+
+        psc24bOutputCurrent2LoLo  INTEGER,
+        psc24bOutputCurrent2Lo    INTEGER,
+        psc24bOutputCurrent2Value INTEGER,
+        psc24bOutputCurrent2Hi    INTEGER,
+        psc24bOutputCurrent2HiHi  INTEGER,
+
+        psc24bPlus3p3VLoLo        INTEGER,
+        psc24bPlus3p3VLo          INTEGER,
+        psc24bPlus3p3VValue       INTEGER,
+        psc24bPlus3p3VHi          INTEGER,
+        psc24bPlus3p3VHiHi        INTEGER,
+
+        psc24bPlus5VLoLo          INTEGER,
+        psc24bPlus5VLo            INTEGER,
+        psc24bPlus5VValue         INTEGER,
+        psc24bPlus5VHi            INTEGER,
+        psc24bPlus5VHiHi          INTEGER,
+
+        psc24bTemperatureLoLo     INTEGER,
+        psc24bTemperatureLo       INTEGER,
+        psc24bTemperatureValue    INTEGER,
+        psc24bTemperatureHi       INTEGER,
+        psc24bTemperatureHiHi     INTEGER
+    }
+
+-- *****
+    psc24bInputVoltageLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input voltage low alarm threshold in steps of 0.1V. In case of AC it is Vrms."
+    ::= { psc24bMeasuringValuesEntry 1 }
+
+    psc24bInputVoltageLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input voltage low warning threshold in steps of 0.1V. In case of AC it is Vrms."
+    ::= { psc24bMeasuringValuesEntry 2 }
+
+    psc24bInputVoltageValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage in steps of 0.1V. In case of AC it is Vrms."
+    ::= { psc24bMeasuringValuesEntry 3 }
+
+    psc24bInputVoltageHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input voltage high warning threshold in steps of 0.1V. In case of AC it is Vrms."
+    ::= { psc24bMeasuringValuesEntry 4 }
+
+    psc24bInputVoltageHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input voltage high alarm threshold in steps of 0.1V. In case of AC it is Vrms."
+    ::= { psc24bMeasuringValuesEntry 5 }
+
+-- *****
+    psc24bOutputVoltageLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output voltage low alarm threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 6 }
+
+    psc24bOutputVoltageLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output voltage low warning threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 7 }
+
+    psc24bOutputVoltageValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The output voltage in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 8 }
+
+    psc24bOutputVoltageHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output voltage high warning threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 9 }
+
+    psc24bOutputVoltageHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output voltage high alarm threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 10 }
+
+-- *****
+    psc24bOutputCurrentLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output current low alarm threshold in steps of 0.1A"
+    ::= { psc24bMeasuringValuesEntry 11 }
+
+    psc24bOutputCurrentLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output current low warning threshold in steps of 0.1A"
+    ::= { psc24bMeasuringValuesEntry 12 }
+
+    psc24bOutputCurrentValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The output current in steps of 0.1A"
+    ::= { psc24bMeasuringValuesEntry 13 }
+
+    psc24bOutputCurrentHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output current high warning threshold in steps of 0.1A"
+    ::= { psc24bMeasuringValuesEntry 14 }
+
+    psc24bOutputCurrentHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output current high alarm threshold in steps of 0.1A"
+    ::= { psc24bMeasuringValuesEntry 15 }
+
+-- *****
+    psc24bOutputVoltage2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The secondary output voltage low alarm threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 16 }
+
+    psc24bOutputVoltage2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The secondary output voltage low warning threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 17 }
+
+    psc24bOutputVoltage2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The secondary output voltage in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 18 }
+
+    psc24bOutputVoltage2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The secondary output voltage high warning threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 19 }
+
+    psc24bOutputVoltage2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The secondary output voltage high alarm threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 20 }
+
+-- *****
+    psc24bOutputCurrent2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The secondary output current low alarm threshold in steps of 0.1A"
+    ::= { psc24bMeasuringValuesEntry 21 }
+
+    psc24bOutputCurrent2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The secondary output current low warning threshold in steps of 0.1A"
+    ::= { psc24bMeasuringValuesEntry 22 }
+
+    psc24bOutputCurrent2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The secondary output current in steps of 0.1A"
+    ::= { psc24bMeasuringValuesEntry 23 }
+
+    psc24bOutputCurrent2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The secondary output current high warning threshold in steps of 0.1A"
+    ::= { psc24bMeasuringValuesEntry 24 }
+
+    psc24bOutputCurrent2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The secondary output current high alarm threshold in steps of 0.1A"
+    ::= { psc24bMeasuringValuesEntry 25 }
+
+-- *****
+    psc24bPlus3p3VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 3.3V internal voltage low alarm threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 26 }
+
+    psc24bPlus3p3VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 3.3V internal voltage low warning threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 27 }
+
+    psc24bPlus3p3VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 3.3V internal voltage in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 28 }
+
+    psc24bPlus3p3VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 3.3V internal voltage high warning threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 29 }
+
+    psc24bPlus3p3VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 3.3V internal voltage high alarm threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 30 }
+
+-- *****
+    psc24bPlus5VLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 5V internal voltage low alarm threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 31 }
+
+    psc24bPlus5VLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 5V internal voltage low warning threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 32 }
+
+    psc24bPlus5VValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 5V internal voltage in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 33 }
+
+    psc24bPlus5VHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 5V internal voltage high warning threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 34 }
+
+    psc24bPlus5VHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The 5V internal voltage high alarm threshold in steps of 0.1V"
+    ::= { psc24bMeasuringValuesEntry 35 }
+
+-- *****
+     psc24bTemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low alarm threshold in steps of 0.1 celsius degrees."
+    ::= { psc24bMeasuringValuesEntry 36 }
+
+    psc24bTemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low warning threshold in steps of 0.1 celsius degrees."
+    ::= { psc24bMeasuringValuesEntry 37 }
+
+    psc24bTemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature in steps of 0.1 celsius degrees."
+    ::= { psc24bMeasuringValuesEntry 38 }
+
+    psc24bTemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high warning threshold in steps of 0.1 celsius degrees."
+    ::= { psc24bMeasuringValuesEntry 39 }
+
+    psc24bTemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high alarm threshold in steps of 0.1 celsius degrees."
+    ::= { psc24bMeasuringValuesEntry 40 }
+
+
+--*****************************************************************************************
+-- Display group
+
+    psc24bDisplayTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc24bDisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { psc24bDisplay 1 }
+
+-- table of configuration entry(ro/rw)
+
+    psc24bDisplayEntry OBJECT-TYPE
+        SYNTAX Psc24bDisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { psc24bNESlot  }
+    ::= { psc24bDisplayTable 1 }
+
+-- the structure of the entry
+
+    Psc24bDisplayEntry ::= SEQUENCE
+    {
+        psc24bDisplayInputVoltageMode   DisplayString,
+        psc24bDisplayVoltage2Supported  TruthValue
+    }
+
+    psc24bDisplayInputVoltageMode OBJECT-TYPE
+        SYNTAX DisplayString (SIZE (2))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+            "Input Voltage Mode, 'AC' or 'DC'"
+    ::={ psc24bDisplayEntry 1 }
+
+    psc24bDisplayVoltage2Supported OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Returns true(1) if a secondary voltage is supported by the module."
+    ::={ psc24bDisplayEntry 2 }
+
+
+--*****************************************************************************************
+END

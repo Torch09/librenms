@@ -1,0 +1,2259 @@
+-- *********************************************************************************************
+-- *
+-- * Description:   Implements definitions for the Otx2-modul
+-- *
+-- * Copyright 2009 by BKtel communications GmbH
+-- *
+-- *     V.0.1 20.05.2009  M. Heldmann first draft
+-- *     V.0.2 11.07.2013  M. Heldmann adjusted syntax of "CommonEntry" to remove MIB compiler warnings
+-- *     V.0.3 05.09.2014  M. Heldmann changed CommonModuleWidth and ConfigNESlotWrite STATUS to optional
+-- *********************************************************************************************
+
+BKTEL-HFC862-OTX2-V01-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        experimental, enterprises, TimeTicks, IpAddress, Counter
+                 FROM RFC1155-SMI
+    OBJECT-TYPE
+                 FROM RFC-1212
+        TRAP-TYPE
+                 FROM RFC-1215
+        modules, DisplayString, TruthValue, PerceivedSeverityValue, NESlotValue, ModuleWidthValue
+                 FROM   BKTEL-HFC862-BASE-MIB
+    ;
+
+    otx2                  OBJECT IDENTIFIER ::= { modules 117 }
+    otx2Common            OBJECT IDENTIFIER ::= { otx2 1 }
+    otx2States            OBJECT IDENTIFIER ::= { otx2 2 }
+    otx2Configuration     OBJECT IDENTIFIER ::= { otx2 3 }
+    otx2Control           OBJECT IDENTIFIER ::= { otx2 4 }
+    otx2MeasuringValues   OBJECT IDENTIFIER ::= { otx2 5 }
+    otx2Display           OBJECT IDENTIFIER ::= { otx2 6 }
+
+
+--
+-- Type definitions
+--
+
+        AgcMode ::= INTEGER
+            {
+            modeAgcOff(1),
+            modeAgcOn(2)
+            }
+
+        PilotMode ::= INTEGER
+            {
+            modePilotOff(1),
+            modePilotOn(2)
+            }
+
+        PilotPskUsageValue ::= INTEGER
+            {
+            enableLinecodes(1),
+            disableAll(2),
+            -- the following mode is only supported if otx2DisplayFullTransbusSupported == true(1)
+            enableFullTransbus(3)
+            }
+
+        ActivityState ::= INTEGER
+            {
+            standby(1),
+            active(2)
+            }
+
+        DeviceRedundancySettingValue ::= INTEGER
+            {
+            noRedundancy(1),
+            onDeviceTransmitterRedundancy(2),
+            interDeviceRedundancy(3),
+            interDeviceTransmitterRedundancy(4)
+            }
+
+        DeviceRedundancyDetectionValue ::= INTEGER
+            {
+            automaticBySlotNumber(1),
+            manualBySetup(2)
+            }
+
+        DeviceNominalRedundantValue ::= INTEGER
+            {
+            nominalDevice(1),
+            redundantDevice(2)
+            }
+
+        DeviceRedundancyState ::= INTEGER
+            {
+            nominalDevice(1),
+            redundantDevice(2)
+            }
+
+        LnbSupplyValue ::= INTEGER
+            {
+            lnbSupplyOff(1),
+            lnbSupply14V(2),
+            lnbSupply18V(3),
+            lnbSupply14V_22kHz(4),
+            lnbSupply18V_22kHz(5)
+            }
+
+        LnbSupplySupportedValue ::= INTEGER
+            {
+            notSupported(1),
+            lnbSupply14V18VSwitchSupported(2),
+            lnbSupply14V18VAnd22kHzSwitchSupported(3)
+            }
+
+        LineCodeNumberValue ::= INTEGER (0..65535)
+
+        NESlotWriteValue ::= INTEGER (-1..99)
+
+
+-- MibCompiler defs --
+-- $idx$: InternalVoltage
+-- $idx$: Tx
+-- MibCompiler defs --
+
+
+--*****************************************************************************************
+-- OTX2 ( Dual direct modulated optical transmitter )
+--*****************************************************************************************
+
+-- otx2Common group
+
+    otx2CommonNumberOfModules OBJECT-TYPE
+        SYNTAX  INTEGER(0..50)
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Number of modules in table."
+    ::= { otx2Common 1 }
+
+    otx2CommonTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Otx2CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "The table contains all modules of the OTX2-type in the NE"
+    ::= { otx2Common 2 }
+
+-- table of states entry(ro/rw)
+
+    otx2CommonEntry OBJECT-TYPE
+        SYNTAX Otx2CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { otx2NESlot }
+    ::= { otx2CommonTable 1 }
+
+-- the structure of the entry
+
+    Otx2CommonEntry ::= SEQUENCE
+    {
+        otx2NESlot                      NESlotValue,
+        otx2CommonType                  DisplayString,
+        otx2CommonDescr                 DisplayString,
+        otx2CommonFirmwareId            DisplayString,
+        otx2CommonModuleWidth           ModuleWidthValue
+    }
+
+    otx2NESlot OBJECT-TYPE
+        SYNTAX  NESlotValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The slot number of the chassis for which this
+        entry contains management information."
+    ::= { otx2CommonEntry 1 }
+
+    otx2CommonType OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE(0..32))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The type of physical module. modSlotEmpty indicates
+         an empty slot.  A Value of modSlotUnknown indicates
+         that the type of module is unknown."
+    ::= { otx2CommonEntry 2 }
+
+    otx2CommonDescr OBJECT-TYPE
+        SYNTAX  DisplayString
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+        "A textual description of the module.
+        If not available, this Value should be
+        set to a zero length string."
+    ::= { otx2CommonEntry 3 }
+
+    otx2CommonFirmwareId OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..32))
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The firmware Id of the module."
+    ::= { otx2CommonEntry 4 }
+
+    otx2CommonModuleWidth OBJECT-TYPE
+        SYNTAX ModuleWidthValue
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION
+        "The width of the module in multiples of slots (1, 2, ...)
+        Returns 0 for special housings (for example 19inch, etc...)"
+    ::= { otx2CommonEntry 5 }
+
+--*****************************************************************************************
+-- otx2MeasuringValues group
+
+-- table of measuring Values
+
+    otx2MeasuringValuesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Otx2MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { otx2MeasuringValues 1 }
+
+-- table of measuring Values entry
+
+    otx2MeasuringValuesEntry OBJECT-TYPE
+        SYNTAX Otx2MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { otx2NESlot }
+    ::= { otx2MeasuringValuesTable 1 }
+
+--  the structure of the entry
+
+    Otx2MeasuringValuesEntry ::= SEQUENCE
+    {
+        otx2RfInputTx1LoLo            INTEGER,
+        otx2RfInputTx1Lo              INTEGER,
+        otx2RfInputTx1Value           INTEGER,
+        otx2RfInputTx1Hi              INTEGER,
+        otx2RfInputTx1HiHi            INTEGER,
+
+        otx2RfInputTx2LoLo            INTEGER,
+        otx2RfInputTx2Lo              INTEGER,
+        otx2RfInputTx2Value           INTEGER,
+        otx2RfInputTx2Hi              INTEGER,
+        otx2RfInputTx2HiHi            INTEGER,
+
+        otx2OutputPowerTx1LoLo        INTEGER,
+        otx2OutputPowerTx1Lo          INTEGER,
+        otx2OutputPowerTx1Value       INTEGER,
+        otx2OutputPowerTx1Hi          INTEGER,
+        otx2OutputPowerTx1HiHi        INTEGER,
+
+        otx2OutputPowerTx2LoLo        INTEGER,
+        otx2OutputPowerTx2Lo          INTEGER,
+        otx2OutputPowerTx2Value       INTEGER,
+        otx2OutputPowerTx2Hi          INTEGER,
+        otx2OutputPowerTx2HiHi        INTEGER,
+
+        otx2OmiReadTx1LoLo            INTEGER,
+        otx2OmiReadTx1Lo              INTEGER,
+        otx2OmiReadTx1Value           INTEGER,
+        otx2OmiReadTx1Hi              INTEGER,
+        otx2OmiReadTx1HiHi            INTEGER,
+
+        otx2OmiReadTx2LoLo            INTEGER,
+        otx2OmiReadTx2Lo              INTEGER,
+        otx2OmiReadTx2Value           INTEGER,
+        otx2OmiReadTx2Hi              INTEGER,
+        otx2OmiReadTx2HiHi            INTEGER,
+
+        otx2RfGainReadTx1LoLo         INTEGER,
+        otx2RfGainReadTx1Lo           INTEGER,
+        otx2RfGainReadTx1Value        INTEGER,
+        otx2RfGainReadTx1Hi           INTEGER,
+        otx2RfGainReadTx1HiHi         INTEGER,
+
+        otx2RfGainReadTx2LoLo         INTEGER,
+        otx2RfGainReadTx2Lo           INTEGER,
+        otx2RfGainReadTx2Value        INTEGER,
+        otx2RfGainReadTx2Hi           INTEGER,
+        otx2RfGainReadTx2HiHi         INTEGER,
+
+        otx2LaserCurrentTx1LoLo       INTEGER,
+        otx2LaserCurrentTx1Lo         INTEGER,
+        otx2LaserCurrentTx1Value      INTEGER,
+        otx2LaserCurrentTx1Hi         INTEGER,
+        otx2LaserCurrentTx1HiHi       INTEGER,
+                                    
+        otx2LaserCurrentTx2LoLo       INTEGER,
+        otx2LaserCurrentTx2Lo         INTEGER,
+        otx2LaserCurrentTx2Value      INTEGER,
+        otx2LaserCurrentTx2Hi         INTEGER,
+        otx2LaserCurrentTx2HiHi       INTEGER,
+                                    
+        otx2TecCurrentTx1LoLo         INTEGER,
+        otx2TecCurrentTx1Lo           INTEGER,
+        otx2TecCurrentTx1Value        INTEGER,
+        otx2TecCurrentTx1Hi           INTEGER,
+        otx2TecCurrentTx1HiHi         INTEGER,
+                                    
+        otx2TecCurrentTx2LoLo         INTEGER,
+        otx2TecCurrentTx2Lo           INTEGER,
+        otx2TecCurrentTx2Value        INTEGER,
+        otx2TecCurrentTx2Hi           INTEGER,
+        otx2TecCurrentTx2HiHi         INTEGER,
+
+        otx2TecVoltageTx1LoLo         INTEGER,
+        otx2TecVoltageTx1Lo           INTEGER,
+        otx2TecVoltageTx1Value        INTEGER,
+        otx2TecVoltageTx1Hi           INTEGER,
+        otx2TecVoltageTx1HiHi         INTEGER,
+
+        otx2TecVoltageTx2LoLo         INTEGER,
+        otx2TecVoltageTx2Lo           INTEGER,
+        otx2TecVoltageTx2Value        INTEGER,
+        otx2TecVoltageTx2Hi           INTEGER,
+        otx2TecVoltageTx2HiHi         INTEGER,
+
+        otx2LaserTempOffsetTx1LoLo    INTEGER,
+        otx2LaserTempOffsetTx1Lo      INTEGER,
+        otx2LaserTempOffsetTx1Value   INTEGER,
+        otx2LaserTempOffsetTx1Hi      INTEGER,
+        otx2LaserTempOffsetTx1HiHi    INTEGER,
+
+        otx2LaserTempOffsetTx2LoLo    INTEGER,
+        otx2LaserTempOffsetTx2Lo      INTEGER,
+        otx2LaserTempOffsetTx2Value   INTEGER,
+        otx2LaserTempOffsetTx2Hi      INTEGER,
+        otx2LaserTempOffsetTx2HiHi    INTEGER,
+
+        otx2TemperatureLoLo           INTEGER,
+        otx2TemperatureLo             INTEGER,
+        otx2TemperatureValue          INTEGER,
+        otx2TemperatureHi             INTEGER,
+        otx2TemperatureHiHi           INTEGER,
+                                      
+        otx2InputVoltageLoLo          INTEGER,
+        otx2InputVoltageLo            INTEGER,
+        otx2InputVoltageValue         INTEGER,
+        otx2InputVoltageHi            INTEGER,
+        otx2InputVoltageHiHi          INTEGER,
+
+        otx2InternalVoltage1LoLo      INTEGER,
+        otx2InternalVoltage1Lo        INTEGER,
+        otx2InternalVoltage1Value     INTEGER,
+        otx2InternalVoltage1Hi        INTEGER,
+        otx2InternalVoltage1HiHi      INTEGER,
+                                      
+        otx2InternalVoltage2LoLo      INTEGER,
+        otx2InternalVoltage2Lo        INTEGER,
+        otx2InternalVoltage2Value     INTEGER,
+        otx2InternalVoltage2Hi        INTEGER,
+        otx2InternalVoltage2HiHi      INTEGER,
+                                      
+        otx2InternalVoltage3LoLo      INTEGER,
+        otx2InternalVoltage3Lo        INTEGER,
+        otx2InternalVoltage3Value     INTEGER,
+        otx2InternalVoltage3Hi        INTEGER,
+        otx2InternalVoltage3HiHi      INTEGER,
+                                      
+        otx2InternalVoltage4LoLo      INTEGER,
+        otx2InternalVoltage4Lo        INTEGER,
+        otx2InternalVoltage4Value     INTEGER,
+        otx2InternalVoltage4Hi        INTEGER,
+        otx2InternalVoltage4HiHi      INTEGER,
+                                      
+        otx2InternalVoltage5LoLo      INTEGER,
+        otx2InternalVoltage5Lo        INTEGER,
+        otx2InternalVoltage5Value     INTEGER,
+        otx2InternalVoltage5Hi        INTEGER,
+        otx2InternalVoltage5HiHi      INTEGER
+    }
+
+-- *****
+    otx2RfInputTx1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) low alarm threshold in steps of 0.1 dBm. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 1 }
+
+    otx2RfInputTx1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) low warning threshold in steps of 0.1 dBm. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 2 }
+
+    otx2RfInputTx1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) in steps of 0.1 dBm. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 3 }
+
+    otx2RfInputTx1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) high warning threshold in steps of 0.1 dBm. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 4 }
+
+    otx2RfInputTx1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) high alarm threshold in steps of 0.1 dBm. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 5 }
+
+-- *****
+    otx2RfInputTx2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) low alarm threshold in steps of 0.1 dBm. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 6 }
+
+    otx2RfInputTx2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) low warning threshold in steps of 0.1 dBm. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 7 }
+
+    otx2RfInputTx2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) in steps of 0.1 dBm. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 8 }
+
+    otx2RfInputTx2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) high warning threshold in steps of 0.1 dBm. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 9 }
+
+    otx2RfInputTx2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RfInput (total rms) high alarm threshold in steps of 0.1 dBm. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 10 }
+
+-- *****
+    otx2OutputPowerTx1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power low alarm threshold in steps of 0.1 dBm. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 11 }
+
+    otx2OutputPowerTx1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power low warning threshold in steps of 0.1 dBm. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 12 }
+
+    otx2OutputPowerTx1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output power in steps of 0.1 dBm. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 13 }
+
+    otx2OutputPowerTx1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power high warning threshold in steps of 0.1 dBm. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 14 }
+
+    otx2OutputPowerTx1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power high alarm threshold in steps of 0.1 dBm. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 15 }
+
+-- *****
+    otx2OutputPowerTx2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power low alarm threshold in steps of 0.1 dBm. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 16 }
+
+    otx2OutputPowerTx2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power low warning threshold in steps of 0.1 dBm. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 17 }
+
+    otx2OutputPowerTx2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output power in steps of 0.1 dBm. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 18 }
+
+    otx2OutputPowerTx2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power high warning threshold in steps of 0.1 dBm. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 19 }
+
+    otx2OutputPowerTx2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Output power high alarm threshold in steps of 0.1 dBm. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 20 }
+
+-- *****
+    otx2OmiReadTx1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset low alarm threshold in steps of 0.1 dB. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 21 }
+
+    otx2OmiReadTx1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset low warning threshold in steps of 0.1 dB. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 22 }
+
+    otx2OmiReadTx1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The offset from nominal optical modulation index in steps of 0.1 dB (Transmitter no. 1)."
+    ::= { otx2MeasuringValuesEntry 23 }
+
+    otx2OmiReadTx1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset high warning threshold in steps of 0.1 dB. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 24 }
+
+    otx2OmiReadTx1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset high alarm threshold in steps of 0.1 dB. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 25 }
+
+-- *****
+    otx2OmiReadTx2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset low alarm threshold in steps of 0.1 dB. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 26 }
+
+    otx2OmiReadTx2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset low warning threshold in steps of 0.1 dB. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 27 }
+
+    otx2OmiReadTx2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The offset from nominal optical modulation index in steps of 0.1 dB (Transmitter no. 2)."
+    ::= { otx2MeasuringValuesEntry 28 }
+
+    otx2OmiReadTx2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset high warning threshold in steps of 0.1 dB. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 29 }
+
+    otx2OmiReadTx2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated OMI offset high alarm threshold in steps of 0.1 dB. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 30 }
+
+-- *****
+    otx2RfGainReadTx1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset low alarm threshold in steps of 0.1 dB. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 31 }
+
+    otx2RfGainReadTx1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset low warning threshold in steps of 0.1 dB. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 32 }
+
+    otx2RfGainReadTx1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The offset from nominal gain in steps of 0.1 dB. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 33 }
+
+    otx2RfGainReadTx1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset high warning threshold in steps of 0.1 dB. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 34 }
+
+    otx2RfGainReadTx1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset high alarm threshold in steps of 0.1 dB. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 35 }
+
+-- *****
+    otx2RfGainReadTx2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset low alarm threshold in steps of 0.1 dB. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 36 }
+
+    otx2RfGainReadTx2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset low warning threshold in steps of 0.1 dB. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 37 }
+
+    otx2RfGainReadTx2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The offset from nominal gain in steps of 0.1 dB. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 38 }
+
+    otx2RfGainReadTx2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset high warning threshold in steps of 0.1 dB. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 39 }
+
+    otx2RfGainReadTx2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Calculated RF gain offset high alarm threshold in steps of 0.1 dB. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 40 }
+
+-- *****
+    otx2LaserCurrentTx1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current low alarm threshold in steps of 0.1%. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 41 }
+
+    otx2LaserCurrentTx1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current low warning threshold in steps of 0.1%. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 42 }
+
+    otx2LaserCurrentTx1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser current relative to the current at begin of life in steps of 0.1%. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 43 }
+
+    otx2LaserCurrentTx1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current high warning threshold in steps of 0.1%. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 44 }
+
+    otx2LaserCurrentTx1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current high alarm threshold in steps of 0.1%. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 45 }
+
+-- *****
+    otx2LaserCurrentTx2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current low alarm threshold in steps of 0.1%. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 46 }
+
+    otx2LaserCurrentTx2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current low warning threshold in steps of 0.1%. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 47 }
+
+    otx2LaserCurrentTx2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser current relative to the current at begin of life in steps of 0.1%. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 48 }
+
+    otx2LaserCurrentTx2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current high warning threshold in steps of 0.1%. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 49 }
+
+    otx2LaserCurrentTx2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Relative laser current high alarm threshold in steps of 0.1%. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 50 }
+
+-- *****
+    otx2TecCurrentTx1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current low alarm threshold in steps of 0.1%. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 51 }
+
+    otx2TecCurrentTx1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current low warning threshold in steps of 0.1%. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 52 }
+
+    otx2TecCurrentTx1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The relative thermo-electric-cooler current in steps of 0.1%. (Transmitter no. 1)
+                     positive values mean that the peltier element is cooling,
+                     negative values mean that the peltier element is heating"
+    ::= { otx2MeasuringValuesEntry 53 }
+
+    otx2TecCurrentTx1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current high warning threshold in steps of 0.1%. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 54 }
+
+    otx2TecCurrentTx1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current high alarm threshold in steps of 0.1%. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 55 }
+
+-- *****
+    otx2TecCurrentTx2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current low alarm threshold in steps of 0.1%. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 56 }
+
+    otx2TecCurrentTx2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current low warning threshold in steps of 0.1%. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 57 }
+
+    otx2TecCurrentTx2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The relative thermo-electric-cooler current in steps of 0.1%. (Transmitter no. 2)
+                     positive values mean that the peltier element is cooling,
+                     negative values mean that the peltier element is heating"
+    ::= { otx2MeasuringValuesEntry 58 }
+
+    otx2TecCurrentTx2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current high warning threshold in steps of 0.1%. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 59 }
+
+    otx2TecCurrentTx2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Thermo-electric-cooler current high alarm threshold in steps of 0.1%. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 60 }
+
+-- *****
+    otx2TecVoltageTx1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage low alarm threshold in steps of 0.1V. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 61 }
+
+    otx2TecVoltageTx1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage low warning threshold in steps of 0.1V. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 62 }
+
+    otx2TecVoltageTx1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage in steps of 0.1V. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 63 }
+
+    otx2TecVoltageTx1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage high warning threshold in steps of 0.1V. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 64 }
+
+    otx2TecVoltageTx1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage high alarm threshold in steps of 0.1V. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 65 }
+
+-- *****
+    otx2TecVoltageTx2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage low alarm threshold in steps of 0.1V. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 66 }
+
+    otx2TecVoltageTx2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage low warning threshold in steps of 0.1V. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 67 }
+
+    otx2TecVoltageTx2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage in steps of 0.1V. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 68 }
+
+    otx2TecVoltageTx2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage high warning threshold in steps of 0.1V. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 69 }
+
+    otx2TecVoltageTx2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal TEC voltage high alarm threshold in steps of 0.1V. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 70 }
+
+-- *****
+     otx2LaserTempOffsetTx1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset low alarm threshold in steps of 0.1 celsius degrees. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 71 }
+
+    otx2LaserTempOffsetTx1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset low warning threshold in steps of 0.1 celsius degrees. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 72 }
+
+    otx2LaserTempOffsetTx1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset (from nominal temperature) in steps of 0.1 celsius degrees. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 73 }
+
+    otx2LaserTempOffsetTx1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset high warning threshold in steps of 0.1 celsius degrees. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 74 }
+
+    otx2LaserTempOffsetTx1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset high alarm threshold in steps of 0.1 celsius degrees. (Transmitter no. 1)"
+    ::= { otx2MeasuringValuesEntry 75 }
+
+-- *****
+     otx2LaserTempOffsetTx2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset low alarm threshold in steps of 0.1 celsius degrees. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 76 }
+
+    otx2LaserTempOffsetTx2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset low warning threshold in steps of 0.1 celsius degrees. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 77 }
+
+    otx2LaserTempOffsetTx2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset (from nominal temperature) in steps of 0.1 celsius degrees. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 78 }
+
+    otx2LaserTempOffsetTx2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset high warning threshold in steps of 0.1 celsius degrees. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 79 }
+
+    otx2LaserTempOffsetTx2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The laser temperatue offset high alarm threshold in steps of 0.1 celsius degrees. (Transmitter no. 2)"
+    ::= { otx2MeasuringValuesEntry 80 }
+
+-- *****
+     otx2TemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low alarm threshold in steps of 0.1 celsius degrees."
+    ::= { otx2MeasuringValuesEntry 81 }
+
+    otx2TemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low warning threshold in steps of 0.1 celsius degrees."
+    ::= { otx2MeasuringValuesEntry 82 }
+
+    otx2TemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature in steps of 0.1 celsius degrees."
+    ::= { otx2MeasuringValuesEntry 83 }
+
+    otx2TemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high warning threshold in steps of 0.1 celsius degrees."
+    ::= { otx2MeasuringValuesEntry 84 }
+
+    otx2TemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high alarm threshold in steps of 0.1 celsius degrees."
+    ::= { otx2MeasuringValuesEntry 85 }
+
+-- *****
+    otx2InputVoltageLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage low alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 86 }
+
+    otx2InputVoltageLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage low warning threshold in steps of 0.1V.
+                     see otx2DisplayInputVoltageNominal"
+    ::= { otx2MeasuringValuesEntry 87 }
+
+    otx2InputVoltageValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 88 }
+
+    otx2InputVoltageHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage high warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 89 }
+
+    otx2InputVoltageHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage high alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 90 }
+
+-- *****
+    otx2InternalVoltage1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 low alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 91 }
+
+    otx2InternalVoltage1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 low warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 92 }
+
+    otx2InternalVoltage1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 in steps of 0.1V.
+                     see otx2DisplayInternalVoltage1Nominal and otx2DisplayInternalVoltage1Supported"
+    ::= { otx2MeasuringValuesEntry 93 }
+
+    otx2InternalVoltage1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 high warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 94 }
+
+    otx2InternalVoltage1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 high alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 95 }
+
+-- *****
+    otx2InternalVoltage2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 low alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 96 }
+
+    otx2InternalVoltage2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 low warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 97 }
+
+    otx2InternalVoltage2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 in steps of 0.1V.
+                     see otx2DisplayInternalVoltage2Nominal and otx2DisplayInternalVoltage2Supported"
+    ::= { otx2MeasuringValuesEntry 98 }
+
+    otx2InternalVoltage2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 high warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 99 }
+
+    otx2InternalVoltage2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 high alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 100 }
+
+-- *****
+    otx2InternalVoltage3LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 low alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 101 }
+
+    otx2InternalVoltage3Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 low warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 102 }
+
+    otx2InternalVoltage3Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 in steps of 0.1V.
+                     see otx2DisplayInternalVoltage3Nominal and otx2DisplayInternalVoltage3Supported"
+    ::= { otx2MeasuringValuesEntry 103 }
+
+    otx2InternalVoltage3Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 high warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 104 }
+
+    otx2InternalVoltage3HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 high alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 105 }
+
+-- *****
+    otx2InternalVoltage4LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 low alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 106 }
+
+    otx2InternalVoltage4Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 low warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 107 }
+
+    otx2InternalVoltage4Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 in steps of 0.1V.
+                     see otx2DisplayInternalVoltage4Nominal and otx2DisplayInternalVoltage4Supported"
+    ::= { otx2MeasuringValuesEntry 108 }
+
+    otx2InternalVoltage4Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 high warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 109 }
+
+    otx2InternalVoltage4HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 high alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 110 }
+
+-- *****
+    otx2InternalVoltage5LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 5 low alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 111 }
+
+    otx2InternalVoltage5Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 5 low warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 112 }
+
+    otx2InternalVoltage5Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 5 in steps of 0.1V.
+                     see otx2DisplayInternalVoltage5Nominal and otx2DisplayInternalVoltage5Supported"
+    ::= { otx2MeasuringValuesEntry 113 }
+
+    otx2InternalVoltage5Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 5 high warning threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 114 }
+
+    otx2InternalVoltage5HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 5 high alarm threshold in steps of 0.1V."
+    ::= { otx2MeasuringValuesEntry 115 }
+
+
+
+--*****************************************************************************************
+--  otx2States group
+
+-- Note: For every control OId there must be a correspondant alarm OId!
+
+    otx2StatesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Otx2StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { otx2States 1 }
+
+-- table of states entry(ro/rw)
+
+    otx2StatesEntry OBJECT-TYPE
+        SYNTAX Otx2StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { otx2NESlot }
+    ::= { otx2StatesTable 1 }
+
+-- the structure of the entry
+
+    Otx2StatesEntry ::= SEQUENCE
+    {
+        otx2StatesBootloader                 PerceivedSeverityValue,
+        otx2StatesCommLoss                   PerceivedSeverityValue,
+        otx2StatesInitializing               PerceivedSeverityValue,
+        otx2StatesTransmitterShutdownTx1     PerceivedSeverityValue,
+        otx2StatesTransmitterShutdownTx2     PerceivedSeverityValue,
+        otx2StatesTemperatureLow             PerceivedSeverityValue,
+        otx2StatesTemperatureHigh            PerceivedSeverityValue,
+        otx2StatesRfInputTx1Low              PerceivedSeverityValue,
+        otx2StatesRfInputTx2Low              PerceivedSeverityValue,
+        otx2StatesRfInputTx1High             PerceivedSeverityValue,
+        otx2StatesRfInputTx2High             PerceivedSeverityValue,
+        otx2StatesOutputPowerTx1             PerceivedSeverityValue,
+        otx2StatesOutputPowerTx2             PerceivedSeverityValue,
+        otx2StatesOmiReadTx1Low              PerceivedSeverityValue,
+        otx2StatesOmiReadTx2Low              PerceivedSeverityValue,
+        otx2StatesOmiReadTx1High             PerceivedSeverityValue,
+        otx2StatesOmiReadTx2High             PerceivedSeverityValue,
+        otx2StatesRfGainReadTx1Low           PerceivedSeverityValue,
+        otx2StatesRfGainReadTx2Low           PerceivedSeverityValue,
+        otx2StatesRfGainReadTx1High          PerceivedSeverityValue,
+        otx2StatesRfGainReadTx2High          PerceivedSeverityValue,
+        otx2StatesLaserCurrentTx1            PerceivedSeverityValue,
+        otx2StatesLaserCurrentTx2            PerceivedSeverityValue,
+        otx2StatesTecCurrentTx1              PerceivedSeverityValue,
+        otx2StatesTecCurrentTx2              PerceivedSeverityValue,
+        otx2StatesLaserTempOffsetTx1         PerceivedSeverityValue,
+        otx2StatesLaserTempOffsetTx2         PerceivedSeverityValue,
+        otx2StatesRfRegulationLimitTx1       PerceivedSeverityValue,
+        otx2StatesRfRegulationLimitTx2       PerceivedSeverityValue,
+        otx2StatesPilotRegulationLimitTx1    PerceivedSeverityValue,
+        otx2StatesPilotRegulationLimitTx2    PerceivedSeverityValue,
+        otx2StatesRedundancySwitchTx1        PerceivedSeverityValue,
+        otx2StatesRedundancySwitchTx2        PerceivedSeverityValue,
+        otx2StatesInputVoltageLow            PerceivedSeverityValue,
+        otx2StatesInputVoltageHigh           PerceivedSeverityValue,
+        otx2StatesInternalVoltage            PerceivedSeverityValue,
+        otx2StatesPowerSupplyLeft            PerceivedSeverityValue,
+        otx2StatesPowerSupplyRight           PerceivedSeverityValue,
+        otx2StatesFanLeft                    PerceivedSeverityValue,
+        otx2StatesFanRight                   PerceivedSeverityValue
+    }
+
+    otx2StatesBootloader OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The device is running in bootloader mode
+             without a legal application software."
+    ::= { otx2StatesEntry 1 }
+
+    otx2StatesCommLoss OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The NEC has lost the connection to the device.
+             Reason may be a removed or defective device.
+             Note that this state is set by the NEC and not
+             by the device"
+    ::= { otx2StatesEntry 2 }
+
+    otx2StatesInitializing OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The device is initializing"
+    ::= { otx2StatesEntry 3 }
+
+    otx2StatesTransmitterShutdownTx1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser is shutdown, no optical output. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 4 }
+
+    otx2StatesTransmitterShutdownTx2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser is shutdown, no optical output. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 5 }
+
+    otx2StatesTemperatureLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device internal temperature low"
+    ::= { otx2StatesEntry 6 }
+
+    otx2StatesTemperatureHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device internal temperature high"
+    ::= { otx2StatesEntry 7 }
+
+    otx2StatesRfInputTx1Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF input power (total rms) low. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 8 }
+
+    otx2StatesRfInputTx2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF input power (total rms) low. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 9 }
+
+    otx2StatesRfInputTx1High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF input power (total rms) high. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 10 }
+
+    otx2StatesRfInputTx2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF input power (total rms) high. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 11 }
+
+    otx2StatesOutputPowerTx1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical output power high or low. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 12 }
+
+    otx2StatesOutputPowerTx2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Optical output power high or low. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 13 }
+
+    otx2StatesOmiReadTx1Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Omi low. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 14 }
+
+    otx2StatesOmiReadTx2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Omi low. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 15 }
+
+    otx2StatesOmiReadTx1High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Omi high. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 16 }
+
+    otx2StatesOmiReadTx2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Omi high. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 17 }
+
+    otx2StatesRfGainReadTx1Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Rf gain low. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 18 }
+
+    otx2StatesRfGainReadTx2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Rf gain low. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 19 }
+
+    otx2StatesRfGainReadTx1High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Rf gain high. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 20 }
+
+    otx2StatesRfGainReadTx2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Rf gain high. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 21 }
+
+    otx2StatesLaserCurrentTx1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser current high or low. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 22 }
+
+    otx2StatesLaserCurrentTx2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser current high or low. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 23 }
+
+    otx2StatesTecCurrentTx1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Peltier (Tec) current high or low. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 24 }
+
+    otx2StatesTecCurrentTx2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Peltier (Tec) current high or low. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 25 }
+
+    otx2StatesLaserTempOffsetTx1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser temperature offset (from nominal temperature) state. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 26 }
+
+    otx2StatesLaserTempOffsetTx2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Laser temperature offset (from nominal temperature) state. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 27 }
+
+    otx2StatesRfRegulationLimitTx1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF regulation limit reached. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 28 }
+
+    otx2StatesRfRegulationLimitTx2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "RF regulation limit reached. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 29 }
+
+    otx2StatesPilotRegulationLimitTx1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Pilot regulation limit reached. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 30 }
+
+    otx2StatesPilotRegulationLimitTx2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Pilot regulation limit reached. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 31 }
+
+    otx2StatesRedundancySwitchTx1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant transmitter has been activated. (Transmitter no. 1)"
+    ::= { otx2StatesEntry 32 }
+
+    otx2StatesRedundancySwitchTx2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant transmitter has been activated. (Transmitter no. 2)"
+    ::= { otx2StatesEntry 33 }
+
+    otx2StatesInputVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage low"
+    ::= { otx2StatesEntry 34 }
+
+    otx2StatesInputVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage high"
+    ::= { otx2StatesEntry 35 }
+
+    otx2StatesInternalVoltage OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Internal voltage high or low"
+    ::= { otx2StatesEntry 36 }
+
+    otx2StatesPowerSupplyLeft OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The left (looking from front) power supply unit fails.
+        Modules that do not have its own fans and power supplies always report clear(5)"
+    ::= { otx2StatesEntry 37 }
+
+    otx2StatesPowerSupplyRight OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The right (looking from front) power supply unit fails.
+        Modules that do not have its own fans and power supplies always report clear(5)"
+    ::= { otx2StatesEntry 38 }
+
+    otx2StatesFanLeft OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The left (looking from front) fan unit fails.
+        Modules that do not have its own fans and power supplies always report clear(5)"
+    ::= { otx2StatesEntry 39 }
+
+    otx2StatesFanRight OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The right (looking from front) fan unit fails.
+        Modules that do not have its own fans and power supplies always report clear(5)"
+    ::= { otx2StatesEntry 40 }
+
+
+--*****************************************************************************************
+--  otx2Control group
+
+    otx2ControlTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Otx2ControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { otx2Control 1 }
+
+-- table of control entry(ro/rw)
+
+    otx2ControlEntry OBJECT-TYPE
+        SYNTAX Otx2ControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { otx2NESlot }
+    ::= { otx2ControlTable 1 }
+
+-- the structure of the entry
+
+    Otx2ControlEntry ::= SEQUENCE
+    {
+        otx2ControlLaserShutdownTx1 TruthValue,
+        otx2ControlLaserShutdownTx2 TruthValue,
+        otx2ControlReset            TruthValue,
+        otx2ControlModuleLedBlink   TruthValue
+    }
+
+    otx2ControlLaserShutdownTx1 OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Force transmitter no. 1 into standy/shutdown mode"
+    ::= { otx2ControlEntry 1 }
+
+    otx2ControlLaserShutdownTx2 OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Force transmitter no. 2 into standy/shutdown mode"
+    ::= { otx2ControlEntry 2 }
+
+    otx2ControlReset OBJECT-TYPE
+      SYNTAX TruthValue
+      ACCESS read-write
+      STATUS mandatory
+      DESCRIPTION "Reset the module."
+    ::= { otx2ControlEntry 3 }
+
+    otx2ControlModuleLedBlink OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Writing this variable to true(1) lets the device's
+        modul LED blink green for 10 seconds.
+        Writing this variable to false(2) stops blinking at once.
+        This variable always returns false(2) on read requests"
+    ::= { otx2ControlEntry 4 }
+
+--*****************************************************************************************
+-- otx2Configuration group
+
+    otx2ConfigurationTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Otx2ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { otx2Configuration 1 }
+
+-- table of configuration entry(ro/rw)
+
+    otx2ConfigurationEntry OBJECT-TYPE
+        SYNTAX Otx2ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { otx2NESlot  }
+    ::= { otx2ConfigurationTable 1 }
+
+-- the structure of the entry
+
+    Otx2ConfigurationEntry ::= SEQUENCE
+    {
+        otx2ConfigNESlotWrite               NESlotWriteValue,
+        otx2ConfigAgcModeTx1                AgcMode,
+        otx2ConfigAgcModeTx2                AgcMode,
+        otx2ConfigOmiTx1                    INTEGER,
+        otx2ConfigOmiTx2                    INTEGER,
+        otx2ConfigRfGainTx1                 INTEGER,
+        otx2ConfigRfGainTx2                 INTEGER,
+        otx2ConfigRfGainLimitTx1            INTEGER,
+        otx2ConfigRfGainLimitTx2            INTEGER,
+        otx2ConfigSlopeTx1                  INTEGER,
+        otx2ConfigSlopeTx2                  INTEGER,
+        otx2ConfigFiberLengthTx1            INTEGER,
+        otx2ConfigFiberLengthTx2            INTEGER,
+        otx2ConfigPilotOmiTx1               INTEGER,
+        otx2ConfigPilotOmiTx2               INTEGER,
+        otx2ConfigLaserFrequencyTx1         INTEGER,
+        otx2ConfigLaserFrequencyTx2         INTEGER,
+        otx2ConfigOutputPowerAdjTx1         INTEGER,
+        otx2ConfigOutputPowerAdjTx2         INTEGER,
+        otx2ConfigPilotModeTx1              PilotMode,
+        otx2ConfigPilotModeTx2              PilotMode,
+        otx2ConfigPilotPskUsageTx1          PilotPskUsageValue,  
+        otx2ConfigPilotPskUsageTx2          PilotPskUsageValue,  
+        otx2ConfigLineCodeNumberTx1         LineCodeNumberValue,
+        otx2ConfigLineCodeNumberTx2         LineCodeNumberValue,
+        otx2ConfigLnbSupplyTx1              LnbSupplyValue,
+        otx2ConfigLnbSupplyTx2              LnbSupplyValue,
+        otx2ConfigDeviceRedundancySetting   DeviceRedundancySettingValue,
+        otx2ConfigDeviceRedundancyDetection DeviceRedundancyDetectionValue,
+        otx2ConfigDeviceNominalRedundant    DeviceNominalRedundantValue
+    }
+
+    otx2ConfigNESlotWrite OBJECT-TYPE
+        SYNTAX NESlotWriteValue
+        ACCESS read-write
+        STATUS optional
+        DESCRIPTION "By writing this variable a slot can be assigned
+            for devices that dont support hardware slot detection.
+            Reading '-1' means that the slot position is NOT writable."
+   ::= { otx2ConfigurationEntry 1 }
+
+    otx2ConfigAgcModeTx1 OBJECT-TYPE
+        SYNTAX AgcMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The AGC mode. (Transmitter no. 1)"
+    ::= { otx2ConfigurationEntry 2 }
+
+    otx2ConfigAgcModeTx2 OBJECT-TYPE
+        SYNTAX AgcMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The AGC mode. (Transmitter no. 2)"
+    ::= { otx2ConfigurationEntry 3 }
+
+    otx2ConfigOmiTx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired offset from nominal optical modulation index in 0.1 dB units. (Transmitter no. 1)
+            This parameter is only used if AGC is on."
+    ::= { otx2ConfigurationEntry 4 }
+
+    otx2ConfigOmiTx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired offset from nominal optical modulation index in 0.1 dB units. (Transmitter no. 2)
+                     This parameter is only used if AGC is on."
+    ::= { otx2ConfigurationEntry 5 }
+
+    otx2ConfigRfGainTx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired RF gain in 0.1 dB units. (Transmitter no. 1)
+            This parameter is only used if AGC is off."
+    ::= { otx2ConfigurationEntry 6 }
+
+    otx2ConfigRfGainTx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired RF gain in 0.1 dB units. (Transmitter no. 2)
+            This parameter is only used if AGC is off."
+    ::= { otx2ConfigurationEntry 7 }
+
+    otx2ConfigRfGainLimitTx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The maximum RF gain in 0.1 dB units. (Transmitter no. 1)
+            This parameter is only used if AGC is ON."
+    ::= { otx2ConfigurationEntry 8 }
+
+    otx2ConfigRfGainLimitTx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The maximum RF gain in 0.1 dB units. (Transmitter no. 2)
+            This parameter is only used if AGC is ON."
+    ::= { otx2ConfigurationEntry 9 }
+
+    otx2ConfigSlopeTx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired slope in 0.1 dB units. (Transmitter no. 1)"
+    ::= { otx2ConfigurationEntry 10 }
+
+    otx2ConfigSlopeTx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired slope in 0.1 dB units. (Transmitter no. 2)"
+    ::= { otx2ConfigurationEntry 11 }
+
+    otx2ConfigFiberLengthTx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The optical fiber length in meter units. (Transmitter no. 1)
+                     only usable if otx2DisplayChirpCompensationSupported"
+    ::= { otx2ConfigurationEntry 12 }
+
+    otx2ConfigFiberLengthTx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The optical fiber length in meter units. (Transmitter no. 2)
+                     only usable if otx2DisplayChirpCompensationSupported"
+    ::= { otx2ConfigurationEntry 13 }
+
+    otx2ConfigPilotOmiTx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The pilot omi in 0.1 dB units. (Transmitter no. 1)
+                     Relative to nominal value, see otx2DisplayPilotOmiTx1Nominal"
+    ::= { otx2ConfigurationEntry 14 }
+
+    otx2ConfigPilotOmiTx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The pilot omi in 0.1 dB units. (Transmitter no. 2)
+                     Relative to nominal value, see otx2DisplayPilotOmiTx2Nominal"
+    ::= { otx2ConfigurationEntry 15 }
+
+    otx2ConfigLaserFrequencyTx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The laser frequency in 0.01 GHz units. (Transmitter no. 1)
+                     Relative to nominal value, see otx2DisplayLaserFrequencyTx1Nominal,
+                     only valid    if otx2DisplayLaserFrequencySupported  == true(1)
+                     only writable if otx2DisplayLaserFrequencyChangeable == true(1)"
+    ::= { otx2ConfigurationEntry 16 }
+
+    otx2ConfigLaserFrequencyTx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The laser frequency in 0.01 GHz units. (Transmitter no. 2)
+                     Relative to nominal value, see otx2DisplayLaserFrequencyTx2Nominal
+                     only valid    if otx2DisplayLaserFrequencySupported  == true(1)
+                     only writable if otx2DisplayLaserFrequencyChangeable == true(1)"
+    ::= { otx2ConfigurationEntry 17 }
+
+    otx2ConfigOutputPowerAdjTx1 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired optical output power offset from nominal power in 0.1 dB units. (Transmitter no. 1)"
+    ::= { otx2ConfigurationEntry 18 }
+
+    otx2ConfigOutputPowerAdjTx2 OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The desired optical output power offset from nominal power in 0.1 dB units. (Transmitter no. 2)"
+    ::= { otx2ConfigurationEntry 19 }
+
+    otx2ConfigPilotModeTx1 OBJECT-TYPE
+        SYNTAX PilotMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Pilot On/Off. (Transmitter no. 1)"
+    ::= { otx2ConfigurationEntry 20 }
+
+    otx2ConfigPilotModeTx2 OBJECT-TYPE
+        SYNTAX PilotMode
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Pilot On/Off. (Transmitter no. 2)"
+    ::= { otx2ConfigurationEntry 21 }
+
+    otx2ConfigPilotPskUsageTx1 OBJECT-TYPE
+        SYNTAX PilotPskUsageValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Pilot PSK coding usage. (Transmitter no. 1)"
+    ::= { otx2ConfigurationEntry 22 }
+
+    otx2ConfigPilotPskUsageTx2 OBJECT-TYPE
+        SYNTAX PilotPskUsageValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "Pilot PSK coding usage. (Transmitter no. 2)"
+    ::= { otx2ConfigurationEntry 23 }
+
+    otx2ConfigLineCodeNumberTx1 OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The line code number that the transmitter shall send. (Transmitter no. 1)
+             This line code number can be used on the remote side optical receiver to 
+             identify the connected transmitter.
+             Only usable if otx2DisplayPilotPskSignallingSupported == true(1)"
+    ::= { otx2ConfigurationEntry 24 }
+
+    otx2ConfigLineCodeNumberTx2 OBJECT-TYPE
+        SYNTAX LineCodeNumberValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The line code number that the transmitter shall send. (Transmitter no. 2)
+             This line code number can be used on the remote side optical receiver to 
+             identify the connected transmitter.
+             Only usable if otx2DisplayPilotPskSignallingSupported == true(1)"
+    ::= { otx2ConfigurationEntry 25 }
+
+    otx2ConfigLnbSupplyTx1 OBJECT-TYPE
+        SYNTAX LnbSupplyValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "SAT LNB supply control. (Transmitter no. 1)
+             not supported for all devces, see otx2DisplayLnbSupplySupported"
+    ::= { otx2ConfigurationEntry 26 }
+
+    otx2ConfigLnbSupplyTx2 OBJECT-TYPE
+        SYNTAX LnbSupplyValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "SAT LNB supply control. (Transmitter no. 2)
+             not supported for all devces, see otx2DisplayLnbSupplySupported"
+    ::= { otx2ConfigurationEntry 27 }
+
+    otx2ConfigDeviceRedundancySetting OBJECT-TYPE
+        SYNTAX DeviceRedundancySettingValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The device's redundancy modes"
+    ::= { otx2ConfigurationEntry 28 }
+
+    otx2ConfigDeviceRedundancyDetection OBJECT-TYPE
+        SYNTAX DeviceRedundancyDetectionValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The device's redundancy 'default nominal' or 'default redundant' detect mode,
+             see otx2DisplayDeviceRedundancyState, it reports the devices default state"
+    ::= { otx2ConfigurationEntry 29 }
+
+    otx2ConfigDeviceNominalRedundant OBJECT-TYPE
+        SYNTAX DeviceNominalRedundantValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION
+            "The device's redundancy default nominal or default redundant setting,
+             only used if otx2ConfigDeviceRedundancyDetection == manualBySetup(2)"
+    ::= { otx2ConfigurationEntry 30 }
+
+
+--*****************************************************************************************
+-- Display group
+
+    otx2DisplayTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Otx2DisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { otx2Display 1 }
+
+-- table of configuration entry(ro/rw)
+
+    otx2DisplayEntry OBJECT-TYPE
+        SYNTAX Otx2DisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { otx2NESlot  }
+    ::= { otx2DisplayTable 1 }
+
+-- the structure of the entry
+
+    Otx2DisplayEntry ::= SEQUENCE
+    {
+        otx2DisplayTransmitterTx1Assembled     TruthValue,
+        otx2DisplayTransmitterTx2Assembled     TruthValue,
+
+        otx2DisplayTransmitterTx1Activity      ActivityState,
+        otx2DisplayTransmitterTx2Activity      ActivityState,
+
+        otx2DisplayDeviceRedundancyState       DeviceRedundancyState,
+
+        otx2DisplayPilotSupported              TruthValue,
+        otx2DisplayPilotPskSignallingSupported TruthValue,   -- Linecode supported
+        otx2DisplaySlopeSupported              TruthValue,
+        otx2DisplayLnbSupplySupported          LnbSupplySupportedValue,
+        otx2DisplayChirpCompensationSupported  TruthValue,   -- FiberLength supported
+        otx2DisplayFullTransbusSupported       TruthValue,
+        otx2DisplayTecCoolingSupported         TruthValue,
+        otx2DisplayRedundancySupported         TruthValue,
+        otx2DisplayLaserTemperatureSupported   TruthValue, 
+        otx2DisplayLaserWavelengthSupported    TruthValue, 
+        otx2DisplayLaserFrequencySupported     TruthValue, 
+        otx2DisplayLaserFrequencyChangeable    TruthValue, 
+        otx2DisplayInternalVoltage1Supported   TruthValue,
+        otx2DisplayInternalVoltage2Supported   TruthValue,
+        otx2DisplayInternalVoltage3Supported   TruthValue,
+        otx2DisplayInternalVoltage4Supported   TruthValue,
+        otx2DisplayInternalVoltage5Supported   TruthValue,
+
+        otx2DisplayOutputPowerTx1Nominal       INTEGER,
+        otx2DisplayOutputPowerTx2Nominal       INTEGER,
+        otx2DisplayOmiTx1Nominal               INTEGER,
+        otx2DisplayOmiTx2Nominal               INTEGER,
+        otx2DisplayPilotOmiTx1Nominal          INTEGER,
+        otx2DisplayPilotOmiTx2Nominal          INTEGER,
+        otx2DisplayLaserFrequencyTx1Nominal    INTEGER,
+        otx2DisplayLaserFrequencyTx2Nominal    INTEGER,
+        otx2DisplayLaserWavelengthTx1          INTEGER,
+        otx2DisplayLaserWavelengthTx2          INTEGER,
+
+        otx2DisplayInputVoltageNominal         INTEGER,
+        otx2DisplayInternalVoltage1Nominal     INTEGER,
+        otx2DisplayInternalVoltage2Nominal     INTEGER,
+        otx2DisplayInternalVoltage3Nominal     INTEGER,
+        otx2DisplayInternalVoltage4Nominal     INTEGER,
+        otx2DisplayInternalVoltage5Nominal     INTEGER
+    }
+
+    otx2DisplayTransmitterTx1Assembled OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if transmitter no. 1 is assembled"
+    ::={ otx2DisplayEntry 1 }
+
+    otx2DisplayTransmitterTx2Assembled OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if transmitter no. 2 is assembled"
+    ::={ otx2DisplayEntry 2 }
+
+    otx2DisplayTransmitterTx1Activity OBJECT-TYPE
+        SYNTAX  ActivityState
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports if transmitter no. 1 is standby or active"
+    ::={ otx2DisplayEntry 3 }
+
+    otx2DisplayTransmitterTx2Activity OBJECT-TYPE
+        SYNTAX  ActivityState
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports if transmitter no. 2 is standby or active"
+    ::={ otx2DisplayEntry 4 }
+
+    otx2DisplayDeviceRedundancyState OBJECT-TYPE
+        SYNTAX  DeviceRedundancyState
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The devices default redundancy state (nominal or redundant)"
+    ::={ otx2DisplayEntry 5 }
+
+-- *****
+
+    otx2DisplayPilotSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if a pilot signal is supported"
+    ::={ otx2DisplayEntry 6 }
+
+    otx2DisplayPilotPskSignallingSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if pilot psk signalling is supported 
+            (Linecode and Remote Status supported)"
+    ::={ otx2DisplayEntry 7 }
+
+    otx2DisplayLnbSupplySupported OBJECT-TYPE
+        SYNTAX  LnbSupplySupportedValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports the supported LNB supply features"
+    ::={ otx2DisplayEntry 8 }
+
+    otx2DisplayChirpCompensationSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if chirp compensation via fiberlength is supported"
+    ::={ otx2DisplayEntry 9 }
+
+    otx2DisplayFullTransbusSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Returns true(1) if a the vendor specific 'full transbus' feature is 
+            supported by device (!! Only for future use !!)"
+    ::={ otx2DisplayEntry 10 }
+
+    otx2DisplayTecCoolingSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if laser tec pelter cooling is supported"
+    ::={ otx2DisplayEntry 11 }
+
+    otx2DisplayRedundancySupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if the device supports redundancy"
+    ::={ otx2DisplayEntry 12 }
+
+    otx2DisplayLaserFrequencySupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if laser frequency is supported, see otx2ConfigLaserFrequencyTx"
+    ::={ otx2DisplayEntry 13 }
+
+    otx2DisplayLaserFrequencyChangeable OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if laser frequency is adjustable, see otx2ConfigLaserFrequencyTx"
+    ::={ otx2DisplayEntry 14 }
+
+    otx2DisplayInternalVoltage1Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 1 is supported"
+    ::={ otx2DisplayEntry 15 }
+
+    otx2DisplayInternalVoltage2Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 2 is supported"
+    ::={ otx2DisplayEntry 16 }
+
+    otx2DisplayInternalVoltage3Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 3 is supported"
+    ::={ otx2DisplayEntry 17 }
+
+    otx2DisplayInternalVoltage4Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 4 is supported"
+    ::={ otx2DisplayEntry 18 }
+
+    otx2DisplayInternalVoltage5Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 5 is supported"
+    ::={ otx2DisplayEntry 19 }
+
+-- *****
+
+    otx2DisplayOutputPowerTx1Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal optical output power in 0.1 dBm units. (Transmitter no. 1)"
+    ::={ otx2DisplayEntry 20 }
+
+    otx2DisplayOutputPowerTx2Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal optical output power in 0.1 dBm units. (Transmitter no. 2)"
+    ::={ otx2DisplayEntry 21 }
+
+    otx2DisplayOmiTx1Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal OMI in 0.1 percent units. (Transmitter no. 1)"
+    ::={ otx2DisplayEntry 22 }
+
+    otx2DisplayOmiTx2Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal OMI in 0.1 percent units. (Transmitter no. 2)"
+    ::={ otx2DisplayEntry 23 }
+
+    otx2DisplayPilotOmiTx1Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal Pilot OMI in 0.1 percent units. (Transmitter no. 1)"
+    ::={ otx2DisplayEntry 24 }
+
+    otx2DisplayPilotOmiTx2Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal Pilot OMI in 0.1 percent units. (Transmitter no. 2)"
+    ::={ otx2DisplayEntry 25 }
+
+    otx2DisplayLaserFrequencyTx1Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal laser frequency in 0.01 GHz units. (Transmitter no. 1)"
+    ::={ otx2DisplayEntry 26 }
+
+    otx2DisplayLaserFrequencyTx2Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal laser frequency in 0.01 GHz units. (Transmitter no. 2)"
+    ::={ otx2DisplayEntry 27 }
+
+    otx2DisplayLaserWavelengthTx1 OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The laser wavelength in nm units. (Transmitter no. 1)"
+    ::={ otx2DisplayEntry 28 }
+
+    otx2DisplayLaserWavelengthTx2 OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The laser wavelength in nm units. (Transmitter no. 2)"
+    ::={ otx2DisplayEntry 29 }
+
+    otx2DisplayInputVoltageNominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal input voltage"
+    ::={ otx2DisplayEntry 30 }
+
+    otx2DisplayInternalVoltage1Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 1"
+    ::={ otx2DisplayEntry 31 }
+
+    otx2DisplayInternalVoltage2Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 2"
+    ::={ otx2DisplayEntry 32 }
+
+    otx2DisplayInternalVoltage3Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 3"
+    ::={ otx2DisplayEntry 33 }
+
+    otx2DisplayInternalVoltage4Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 4"
+    ::={ otx2DisplayEntry 34 }
+
+    otx2DisplayInternalVoltage5Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 5"
+    ::={ otx2DisplayEntry 35 }
+
+
+
+END
+

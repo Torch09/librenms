@@ -1,0 +1,636 @@
+-- *********************************************************************************************
+-- *
+-- * Description:   Implements definitions for the PSC230
+-- *                (Power Supply 230V)
+-- *
+-- * Copyright 2009 by BKtel communications GmbH
+-- *
+-- *     V 0.1  17.12.2009  M. Heldmann first draft
+-- *     V 0.2  14.04.2010  M. Heldmann added changes due to customer TMP from march 2010 
+-- *                                    Note: changes are inserted non compatible to draft V 0.1
+-- *     V.0.3  11.07.2013  M. Heldmann adjusted syntax of "CommonEntry" to remove MIB compiler warnings
+-- *     V.0.4  05.09.2014  M. Heldmann changed CommonModuleWidth and ConfigNESlotWrite STATUS to optional
+-- *********************************************************************************************
+
+BKTEL-HFC862-PSC230-V01-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        experimental, enterprises, TimeTicks, IpAddress, Counter
+                 FROM RFC1155-SMI
+    OBJECT-TYPE
+                 FROM RFC-1212
+        TRAP-TYPE
+                 FROM RFC-1215
+        modules, DisplayString, TruthValue, PerceivedSeverityValue, NESlotValue, ModuleWidthValue
+                 FROM   BKTEL-HFC862-BASE-MIB
+    ;
+
+    psc230                 OBJECT IDENTIFIER ::= { modules 118 }
+    psc230Common           OBJECT IDENTIFIER ::= { psc230 1 }
+    psc230States           OBJECT IDENTIFIER ::= { psc230 2 }
+    psc230Configuration    OBJECT IDENTIFIER ::= { psc230 3 }
+    psc230Control          OBJECT IDENTIFIER ::= { psc230 4 }
+    psc230MeasuringValues  OBJECT IDENTIFIER ::= { psc230 5 }
+    psc230Display          OBJECT IDENTIFIER ::= { psc230 6 }
+
+
+--
+-- Type definitions
+--
+
+    NESlotWriteValue ::= INTEGER (-1..99)
+
+    NmsInterfacePinsValue ::= INTEGER
+        {
+        pins_3_4(1),
+        pins_6_7(2)
+        }
+
+
+
+-- psc230Common group
+
+    psc230CommonNumberOfModules OBJECT-TYPE
+        SYNTAX  INTEGER(0..50)
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Number of modules in table."
+    ::= { psc230Common 1 }
+
+    psc230CommonTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc230CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "The table contains all modules of the PSC230-type in the NE"
+    ::= { psc230Common 2 }
+
+-- table of states entry(ro/rw)
+
+    psc230CommonEntry OBJECT-TYPE
+        SYNTAX Psc230CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { psc230NESlot }
+    ::= { psc230CommonTable 1 }
+
+-- the structure of the entry
+
+    Psc230CommonEntry ::= SEQUENCE
+    {
+        psc230NESlot                      NESlotValue,
+        psc230CommonType                  DisplayString,
+        psc230CommonDescr                 DisplayString,
+        psc230CommonFirmwareId            DisplayString,
+        psc230CommonModuleWidth           ModuleWidthValue
+    }
+
+    psc230NESlot OBJECT-TYPE
+        SYNTAX  NESlotValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The slot number of the chassis for which this
+        entry contains management information.
+        Equal to: modOTXDv11UniqueID"
+    ::= { psc230CommonEntry 1 }
+
+    psc230CommonType OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE(0..32))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The type of physical module."
+    ::= { psc230CommonEntry 2 }
+
+    psc230CommonDescr OBJECT-TYPE
+        SYNTAX  DisplayString
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+        "A textual description of the module.
+        If not available, this Value should be
+        set to a zero length string."
+    ::= { psc230CommonEntry 3 }
+
+    psc230CommonFirmwareId OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..32))
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The firmware Id of the module."
+    ::= { psc230CommonEntry 4 }
+
+    psc230CommonModuleWidth OBJECT-TYPE
+        SYNTAX ModuleWidthValue
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION
+        "The width of the module in multiples of slots (1, 2, ...)
+        Returns 0 for special housings (for example 19inch, etc...)"
+    ::= { psc230CommonEntry 5 }
+
+
+--*****************************************************************************************
+--  psc230States group
+
+    psc230StatesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc230StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { psc230States 1 }
+
+-- table of states entry(ro/rw)
+
+    psc230StatesEntry OBJECT-TYPE
+        SYNTAX Psc230StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { psc230NESlot }
+    ::= { psc230StatesTable 1 }
+
+-- the structure of the entry
+
+    Psc230StatesEntry ::= SEQUENCE
+    {
+        psc230StatesBootloader          PerceivedSeverityValue,
+        psc230StatesCommLoss            PerceivedSeverityValue,
+        psc230StatesInputVoltageLow     PerceivedSeverityValue,
+        psc230StatesInputVoltageHigh    PerceivedSeverityValue,
+        psc230StatesOutputVoltageLow    PerceivedSeverityValue,
+        psc230StatesOutputVoltageHigh   PerceivedSeverityValue,
+        psc230StatesInputCurrentLow     PerceivedSeverityValue,
+        psc230StatesInputCurrentHigh    PerceivedSeverityValue,
+        psc230StatesOutputCurrentLow    PerceivedSeverityValue,
+        psc230StatesOutputCurrentHigh   PerceivedSeverityValue,
+        psc230StatesTemperatureLow      PerceivedSeverityValue,
+        psc230StatesTemperatureHigh     PerceivedSeverityValue,
+        psc230StatesRedundancySwitch    PerceivedSeverityValue
+    }
+
+    psc230StatesBootloader OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The device is running in bootloader mode
+             without a legal application software."
+    ::= { psc230StatesEntry 1 }
+
+    psc230StatesCommLoss OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The NEC has lost the connection to the device.
+             Reason may be a removed or defective device.
+             Note that this state is set by the NEC and not
+             by the device"
+    ::= { psc230StatesEntry 2 }
+
+    psc230StatesInputVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage low"
+    ::= { psc230StatesEntry 3 }
+
+    psc230StatesInputVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage high"
+    ::= { psc230StatesEntry 4 }
+
+    psc230StatesOutputVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output voltage low"
+    ::= { psc230StatesEntry 5 }
+
+    psc230StatesOutputVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output voltage high"
+    ::= { psc230StatesEntry 6 }
+
+    psc230StatesInputCurrentLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input current low"
+    ::= { psc230StatesEntry 7 }
+
+    psc230StatesInputCurrentHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input current high"
+    ::= { psc230StatesEntry 8 }
+
+    psc230StatesOutputCurrentLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output current low"
+    ::= { psc230StatesEntry 9 }
+
+    psc230StatesOutputCurrentHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output current high"
+    ::= { psc230StatesEntry 10 }
+
+    psc230StatesTemperatureLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Internal temperature low"
+    ::= { psc230StatesEntry 11 }
+
+    psc230StatesTemperatureHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Internal temperature high"
+    ::= { psc230StatesEntry 12 }
+
+    psc230StatesRedundancySwitch OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Power supply has switched to redundant device"
+    ::= { psc230StatesEntry 13 }
+
+
+--*****************************************************************************************
+--  psc230Control group
+
+    psc230ControlTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc230ControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { psc230Control 1 }
+
+-- table of control entry(ro/rw)
+
+    psc230ControlEntry OBJECT-TYPE
+        SYNTAX Psc230ControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { psc230NESlot }
+    ::= { psc230ControlTable 1 }
+
+-- the structure of the entry
+
+    Psc230ControlEntry ::= SEQUENCE
+    {
+        psc230ControlReset            TruthValue,
+        psc230ControlModuleLedBlink   TruthValue
+    }
+
+    psc230ControlReset OBJECT-TYPE
+      SYNTAX TruthValue
+      ACCESS read-write
+      STATUS mandatory
+      DESCRIPTION "Reset the module."
+    ::= { psc230ControlEntry 1 }
+
+    psc230ControlModuleLedBlink OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Writing this variable to true(1) lets the device's
+        modul LED blink green for 10 seconds.
+        Writing this variable to false(2) stops blinking at once.
+        This variable always returns false(2) on read requests"
+    ::= { psc230ControlEntry 2 }
+
+
+--*****************************************************************************************
+-- psc230Configuration group
+
+    psc230ConfigurationTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc230ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { psc230Configuration 1 }
+
+-- table of configuration entry(ro/rw)
+
+    psc230ConfigurationEntry OBJECT-TYPE
+        SYNTAX Psc230ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { psc230NESlot  }
+    ::= { psc230ConfigurationTable 1 }
+
+-- the structure of the entry
+
+    Psc230ConfigurationEntry ::= SEQUENCE
+    {
+        psc230ConfigNESlotWrite                  NESlotWriteValue
+    }
+
+    psc230ConfigNESlotWrite OBJECT-TYPE
+        SYNTAX NESlotWriteValue
+        ACCESS read-write
+        STATUS optional
+        DESCRIPTION "By writing this variable a slot can be assigned
+            for devices that dont support hardware slot detection.
+            Reading '-1' means that the slot position is NOT writable."
+    ::= { psc230ConfigurationEntry 1 }
+
+
+--*****************************************************************************************
+-- psc230MeasuringValues group
+
+-- table of measuring Values
+
+    psc230MeasuringValuesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc230MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+   ::= { psc230MeasuringValues 1 }
+
+-- table of measuring Values entry
+
+    psc230MeasuringValuesEntry OBJECT-TYPE
+        SYNTAX Psc230MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { psc230NESlot }
+  ::= { psc230MeasuringValuesTable 1 }
+
+--  the structure of the entry
+
+    Psc230MeasuringValuesEntry ::= SEQUENCE
+    {
+        psc230InputVoltageLoLo    INTEGER,
+        psc230InputVoltageLo      INTEGER,
+        psc230InputVoltageValue   INTEGER,
+        psc230InputVoltageHi      INTEGER,
+        psc230InputVoltageHiHi    INTEGER,
+
+        psc230OutputVoltageLoLo   INTEGER,
+        psc230OutputVoltageLo     INTEGER,
+        psc230OutputVoltageValue  INTEGER,
+        psc230OutputVoltageHi     INTEGER,
+        psc230OutputVoltageHiHi   INTEGER,
+
+        psc230InputCurrentLoLo    INTEGER,
+        psc230InputCurrentLo      INTEGER,
+        psc230InputCurrentValue   INTEGER,
+        psc230InputCurrentHi      INTEGER,
+        psc230InputCurrentHiHi    INTEGER,
+
+        psc230OutputCurrentLoLo   INTEGER,
+        psc230OutputCurrentLo     INTEGER,
+        psc230OutputCurrentValue  INTEGER,
+        psc230OutputCurrentHi     INTEGER,
+        psc230OutputCurrentHiHi   INTEGER,
+
+        psc230TemperatureLoLo     INTEGER,
+        psc230TemperatureLo       INTEGER,
+        psc230TemperatureValue    INTEGER,
+        psc230TemperatureHi       INTEGER,
+        psc230TemperatureHiHi     INTEGER
+    }
+
+-- *****
+    psc230InputVoltageLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input voltage low alarm threshold in steps of 0.1V. In case of AC it is Vrms."
+    ::= { psc230MeasuringValuesEntry 1 }
+
+    psc230InputVoltageLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input voltage low warning threshold in steps of 0.1V. In case of AC it is Vrms."
+    ::= { psc230MeasuringValuesEntry 2 }
+
+    psc230InputVoltageValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage in steps of 0.1V. In case of AC it is Vrms."
+    ::= { psc230MeasuringValuesEntry 3 }
+
+    psc230InputVoltageHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input voltage high warning threshold in steps of 0.1V. In case of AC it is Vrms."
+    ::= { psc230MeasuringValuesEntry 4 }
+
+    psc230InputVoltageHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input voltage high alarm threshold in steps of 0.1V. In case of AC it is Vrms."
+    ::= { psc230MeasuringValuesEntry 5 }
+
+-- *****
+    psc230OutputVoltageLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output voltage low alarm threshold in steps of 0.1V"
+    ::= { psc230MeasuringValuesEntry 6 }
+
+    psc230OutputVoltageLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output voltage low warning threshold in steps of 0.1V"
+    ::= { psc230MeasuringValuesEntry 7 }
+
+    psc230OutputVoltageValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The output voltage in steps of 0.1V"
+    ::= { psc230MeasuringValuesEntry 8 }
+
+    psc230OutputVoltageHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output voltage high warning threshold in steps of 0.1V"
+    ::= { psc230MeasuringValuesEntry 9 }
+
+    psc230OutputVoltageHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The output voltage high alarm threshold in steps of 0.1V"
+    ::= { psc230MeasuringValuesEntry 10 }
+
+-- *****
+    psc230InputCurrentLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input current low alarm threshold in steps of 0.1A"
+    ::= { psc230MeasuringValuesEntry 11 }
+
+    psc230InputCurrentLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input current low warning threshold in steps of 0.1A"
+    ::= { psc230MeasuringValuesEntry 12 }
+
+    psc230InputCurrentValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input current in steps of 0.1A"
+    ::= { psc230MeasuringValuesEntry 13 }
+
+    psc230InputCurrentHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input current high warning threshold in steps of 0.1A"
+    ::= { psc230MeasuringValuesEntry 14 }
+
+    psc230InputCurrentHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The input current high alarm threshold in steps of 0.1A"
+    ::= { psc230MeasuringValuesEntry 15 }
+
+-- *****
+    psc230OutputCurrentLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The Output current low alarm threshold in steps of 0.1A"
+    ::= { psc230MeasuringValuesEntry 16 }
+
+    psc230OutputCurrentLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The Output current low warning threshold in steps of 0.1A"
+    ::= { psc230MeasuringValuesEntry 17 }
+
+    psc230OutputCurrentValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The Output current in steps of 0.1A"
+    ::= { psc230MeasuringValuesEntry 18 }
+
+    psc230OutputCurrentHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The Output current high warning threshold in steps of 0.1A"
+    ::= { psc230MeasuringValuesEntry 19 }
+
+    psc230OutputCurrentHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "The Output current high alarm threshold in steps of 0.1A"
+    ::= { psc230MeasuringValuesEntry 20 }
+
+-- *****
+     psc230TemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low alarm threshold in steps of 0.1 celsius degrees."
+    ::= { psc230MeasuringValuesEntry 21 }
+
+    psc230TemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low warning threshold in steps of 0.1 celsius degrees."
+    ::= { psc230MeasuringValuesEntry 22 }
+
+    psc230TemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature in steps of 0.1 celsius degrees."
+    ::= { psc230MeasuringValuesEntry 23 }
+
+    psc230TemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high warning threshold in steps of 0.1 celsius degrees."
+    ::= { psc230MeasuringValuesEntry 24 }
+
+    psc230TemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high alarm threshold in steps of 0.1 celsius degrees."
+    ::= { psc230MeasuringValuesEntry 25 }
+
+
+--*****************************************************************************************
+-- Display group
+
+    psc230DisplayTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Psc230DisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { psc230Display 1 }
+
+-- table of configuration entry(ro/rw)
+
+    psc230DisplayEntry OBJECT-TYPE
+        SYNTAX Psc230DisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { psc230NESlot  }
+    ::= { psc230DisplayTable 1 }
+
+-- the structure of the entry
+
+    Psc230DisplayEntry ::= SEQUENCE
+    {
+        psc230RedundancySupported  TruthValue,
+        psc230NmsInterfacePins     NmsInterfacePinsValue
+
+    }
+
+    psc230RedundancySupported OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Returns true(1) if the power supply supports redundancy."
+    ::={ psc230DisplayEntry 1 }
+
+    psc230NmsInterfacePins OBJECT-TYPE
+        SYNTAX NmsInterfacePinsValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The interface pins used to communicate with nms controller."
+    ::={ psc230DisplayEntry 2 }
+
+
+--*****************************************************************************************
+END

@@ -1,0 +1,758 @@
+-- *********************************************************************************************
+-- *
+-- * Description:   Implements definitions for the Rmts-modul
+-- *
+-- * Copyright 2012 by BKtel communications GmbH
+-- *
+-- *     V.0.1 17.08.2012  M.Heldmann   first draft
+-- *     V.0.2 13.03.2014  M.Heldmann   added variables rmtsDisplayFskTransceiverFrequency,
+-- *                                                    rmtsConfigRfOutputlevel
+-- *     V.0.3 05.09.2014  M. Heldmann  changed CommonModuleWidth and ConfigNESlotWrite STATUS to optional
+-- *********************************************************************************************
+
+BKTEL-HFC862-RMTS-V01-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        experimental, enterprises, TimeTicks, IpAddress, Counter
+                 FROM RFC1155-SMI
+    OBJECT-TYPE
+                 FROM RFC-1212
+        TRAP-TYPE
+                 FROM RFC-1215
+        modules, DisplayString, TruthValue, PerceivedSeverityValue, NESlotValue, ModuleWidthValue
+                 FROM   BKTEL-HFC862-BASE-MIB
+    ;
+
+    rmts                  OBJECT IDENTIFIER ::= { modules 122 }
+    rmtsCommon            OBJECT IDENTIFIER ::= { rmts 1 }
+    rmtsStates            OBJECT IDENTIFIER ::= { rmts 2 }
+    rmtsConfiguration     OBJECT IDENTIFIER ::= { rmts 3 }
+    rmtsControl           OBJECT IDENTIFIER ::= { rmts 4 }
+    rmtsMeasuringValues   OBJECT IDENTIFIER ::= { rmts 5 }
+    rmtsDisplay           OBJECT IDENTIFIER ::= { rmts 6 }
+
+
+--
+-- Type definitions
+--
+
+    InputOutputSetupValue ::= INTEGER
+    {
+        fourRfInputs(1),
+        twoRfInputsTwoRfOutputs(2)
+    }
+
+    NESlotWriteValue ::= INTEGER (-1..99)
+
+
+-- MibCompiler defs --
+-- $idx$: InternalVoltage
+-- MibCompiler defs --
+
+
+--*****************************************************************************************
+-- RMTS ( Dual direct modulated optical transmitter )
+--*****************************************************************************************
+
+-- rmtsCommon group
+
+    rmtsCommonNumberOfModules OBJECT-TYPE
+        SYNTAX  INTEGER(0..50)
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Number of modules in table."
+    ::= { rmtsCommon 1 }
+
+    rmtsCommonTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF RmtsCommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "The table contains all modules of the RMTS-type in the NE"
+    ::= { rmtsCommon 2 }
+
+-- table of states entry(ro/rw)
+
+    rmtsCommonEntry OBJECT-TYPE
+        SYNTAX RmtsCommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { rmtsNESlot }
+    ::= { rmtsCommonTable 1 }
+
+-- the structure of the entry
+
+    RmtsCommonEntry ::= SEQUENCE
+    {
+        rmtsNESlot                      NESlotValue,
+        rmtsCommonType                  DisplayString,
+        rmtsCommonDescr                 DisplayString,
+        rmtsCommonFirmwareId            DisplayString,
+        rmtsCommonModuleWidth           ModuleWidthValue
+    }
+
+    rmtsNESlot OBJECT-TYPE
+        SYNTAX  NESlotValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The slot number of the chassis for which this
+        entry contains management information."
+    ::= { rmtsCommonEntry 1 }
+
+    rmtsCommonType OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE(0..32))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The type of physical module. modSlotEmpty indicates
+         an empty slot.  A Value of modSlotUnknown indicates
+         that the type of module is unknown."
+    ::= { rmtsCommonEntry 2 }
+
+    rmtsCommonDescr OBJECT-TYPE
+        SYNTAX  DisplayString
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+        "A textual description of the module.
+        If not available, this Value should be
+        set to a zero length string."
+    ::= { rmtsCommonEntry 3 }
+
+    rmtsCommonFirmwareId OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..32))
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The firmware Id of the module."
+    ::= { rmtsCommonEntry 4 }
+
+    rmtsCommonModuleWidth OBJECT-TYPE
+        SYNTAX ModuleWidthValue
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION
+        "The width of the module in multiples of slots (1, 2, ...)
+        Returns 0 for special housings (for example 19inch, etc...)"
+    ::= { rmtsCommonEntry 5 }
+
+--*****************************************************************************************
+-- rmtsMeasuringValues group
+
+-- table of measuring Values
+
+    rmtsMeasuringValuesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF RmtsMeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { rmtsMeasuringValues 1 }
+
+-- table of measuring Values entry
+
+    rmtsMeasuringValuesEntry OBJECT-TYPE
+        SYNTAX RmtsMeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { rmtsNESlot }
+    ::= { rmtsMeasuringValuesTable 1 }
+
+--  the structure of the entry
+
+    RmtsMeasuringValuesEntry ::= SEQUENCE
+    {
+        rmtsTemperatureLoLo                INTEGER,
+        rmtsTemperatureLo                  INTEGER,
+        rmtsTemperatureValue               INTEGER,
+        rmtsTemperatureHi                  INTEGER,
+        rmtsTemperatureHiHi                INTEGER,
+
+        rmtsInputVoltageLoLo               INTEGER,
+        rmtsInputVoltageLo                 INTEGER,
+        rmtsInputVoltageValue              INTEGER,
+        rmtsInputVoltageHi                 INTEGER,
+        rmtsInputVoltageHiHi               INTEGER,
+
+        rmtsInternalVoltage1LoLo           INTEGER,
+        rmtsInternalVoltage1Lo             INTEGER,
+        rmtsInternalVoltage1Value          INTEGER,
+        rmtsInternalVoltage1Hi             INTEGER,
+        rmtsInternalVoltage1HiHi           INTEGER,
+
+        rmtsInternalVoltage2LoLo           INTEGER,
+        rmtsInternalVoltage2Lo             INTEGER,
+        rmtsInternalVoltage2Value          INTEGER,
+        rmtsInternalVoltage2Hi             INTEGER,
+        rmtsInternalVoltage2HiHi           INTEGER,
+
+        rmtsInternalVoltage3LoLo           INTEGER,
+        rmtsInternalVoltage3Lo             INTEGER,
+        rmtsInternalVoltage3Value          INTEGER,
+        rmtsInternalVoltage3Hi             INTEGER,
+        rmtsInternalVoltage3HiHi           INTEGER,
+
+        rmtsInternalVoltage4LoLo           INTEGER,
+        rmtsInternalVoltage4Lo             INTEGER,
+        rmtsInternalVoltage4Value          INTEGER,
+        rmtsInternalVoltage4Hi             INTEGER,
+        rmtsInternalVoltage4HiHi           INTEGER
+    }
+
+-- *****
+     rmtsTemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low alarm threshold in steps of 0.1 celsius degrees."
+    ::= { rmtsMeasuringValuesEntry 1 }
+
+    rmtsTemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low warning threshold in steps of 0.1 celsius degrees."
+    ::= { rmtsMeasuringValuesEntry 2 }
+
+    rmtsTemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature in steps of 0.1 celsius degrees."
+    ::= { rmtsMeasuringValuesEntry 3 }
+
+    rmtsTemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high warning threshold in steps of 0.1 celsius degrees."
+    ::= { rmtsMeasuringValuesEntry 4 }
+
+    rmtsTemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high alarm threshold in steps of 0.1 celsius degrees."
+    ::= { rmtsMeasuringValuesEntry 5 }
+
+-- *****
+    rmtsInputVoltageLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage low alarm threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 6 }
+
+    rmtsInputVoltageLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage low warning threshold in steps of 0.1V.
+                     see rmtsDisplayInputVoltageNominal"
+    ::= { rmtsMeasuringValuesEntry 7 }
+
+    rmtsInputVoltageValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 8 }
+
+    rmtsInputVoltageHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage high warning threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 9 }
+
+    rmtsInputVoltageHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage high alarm threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 10 }
+
+-- *****
+    rmtsInternalVoltage1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 low alarm threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 11 }
+
+    rmtsInternalVoltage1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 low warning threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 12 }
+
+    rmtsInternalVoltage1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 in steps of 0.1V.
+                     see rmtsDisplayInternalVoltage1Nominal and rmtsDisplayInternalVoltage1Supported"
+    ::= { rmtsMeasuringValuesEntry 13 }
+
+    rmtsInternalVoltage1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 high warning threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 14 }
+
+    rmtsInternalVoltage1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 1 high alarm threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 15 }
+
+-- *****
+    rmtsInternalVoltage2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 low alarm threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 16 }
+
+    rmtsInternalVoltage2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 low warning threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 17 }
+
+    rmtsInternalVoltage2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 in steps of 0.1V.
+                     see rmtsDisplayInternalVoltage2Nominal and rmtsDisplayInternalVoltage2Supported"
+    ::= { rmtsMeasuringValuesEntry 18 }
+
+    rmtsInternalVoltage2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 high warning threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 19 }
+
+    rmtsInternalVoltage2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 2 high alarm threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 20 }
+
+-- *****
+    rmtsInternalVoltage3LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 low alarm threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 21 }
+
+    rmtsInternalVoltage3Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 low warning threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 22 }
+
+    rmtsInternalVoltage3Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 in steps of 0.1V.
+                     see rmtsDisplayInternalVoltage3Nominal and rmtsDisplayInternalVoltage3Supported"
+    ::= { rmtsMeasuringValuesEntry 23 }
+
+    rmtsInternalVoltage3Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 high warning threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 24 }
+
+    rmtsInternalVoltage3HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 3 high alarm threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 25 }
+
+-- *****
+    rmtsInternalVoltage4LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 low alarm threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 26 }
+
+    rmtsInternalVoltage4Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 low warning threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 27 }
+
+    rmtsInternalVoltage4Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 in steps of 0.1V.
+                     see rmtsDisplayInternalVoltage4Nominal and rmtsDisplayInternalVoltage4Supported"
+    ::= { rmtsMeasuringValuesEntry 28 }
+
+    rmtsInternalVoltage4Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 high warning threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 29 }
+
+    rmtsInternalVoltage4HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The internal voltage no. 4 high alarm threshold in steps of 0.1V."
+    ::= { rmtsMeasuringValuesEntry 30 }
+
+
+--*****************************************************************************************
+--  rmtsStates group
+
+-- Note: For every control OId there must be a correspondant alarm OId!
+
+    rmtsStatesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF RmtsStatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { rmtsStates 1 }
+
+-- table of states entry(ro/rw)
+
+    rmtsStatesEntry OBJECT-TYPE
+        SYNTAX RmtsStatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { rmtsNESlot }
+    ::= { rmtsStatesTable 1 }
+
+-- the structure of the entry
+
+    RmtsStatesEntry ::= SEQUENCE
+    {
+        rmtsStatesBootloader                   PerceivedSeverityValue,
+        rmtsStatesCommLoss                     PerceivedSeverityValue,
+        rmtsStatesTemperatureLow               PerceivedSeverityValue,
+        rmtsStatesTemperatureHigh              PerceivedSeverityValue,
+        rmtsStatesInputVoltageLow              PerceivedSeverityValue,
+        rmtsStatesInputVoltageHigh             PerceivedSeverityValue,
+        rmtsStatesInternalVoltage              PerceivedSeverityValue
+    }
+
+    rmtsStatesBootloader OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The device is running in bootloader mode
+             without a legal application software."
+    ::= { rmtsStatesEntry 1 }
+
+    rmtsStatesCommLoss OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The NEC has lost the connection to the device.
+             Reason may be a removed or defective device.
+             Note that this state is set by the NEC and not
+             by the device"
+    ::= { rmtsStatesEntry 2 }
+
+    rmtsStatesTemperatureLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device internal temperature low"
+    ::= { rmtsStatesEntry 3 }
+
+    rmtsStatesTemperatureHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device internal temperature high"
+    ::= { rmtsStatesEntry 4 }
+
+    rmtsStatesInputVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage low"
+    ::= { rmtsStatesEntry 5 }
+
+    rmtsStatesInputVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage high"
+    ::= { rmtsStatesEntry 6 }
+
+    rmtsStatesInternalVoltage OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Internal voltage high or low"
+    ::= { rmtsStatesEntry 7 }
+
+
+--*****************************************************************************************
+--  rmtsControl group
+
+    rmtsControlTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF RmtsControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { rmtsControl 1 }
+
+-- table of control entry(ro/rw)
+
+    rmtsControlEntry OBJECT-TYPE
+        SYNTAX RmtsControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { rmtsNESlot }
+    ::= { rmtsControlTable 1 }
+
+-- the structure of the entry
+
+    RmtsControlEntry ::= SEQUENCE
+    {
+        rmtsControlReset            TruthValue,
+        rmtsControlModuleLedBlink   TruthValue
+    }
+
+    rmtsControlReset OBJECT-TYPE
+      SYNTAX TruthValue
+      ACCESS read-write
+      STATUS mandatory
+      DESCRIPTION "Reset the module."
+    ::= { rmtsControlEntry 1 }
+
+    rmtsControlModuleLedBlink OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Writing this variable to true(1) lets the device's
+        modul LED blink green for 10 seconds.
+        Writing this variable to false(2) stops blinking at once.
+        This variable always returns false(2) on read requests"
+    ::= { rmtsControlEntry 2 }
+
+--*****************************************************************************************
+-- rmtsConfiguration group
+
+    rmtsConfigurationTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF RmtsConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { rmtsConfiguration 1 }
+
+-- table of configuration entry(ro/rw)
+
+    rmtsConfigurationEntry OBJECT-TYPE
+        SYNTAX RmtsConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { rmtsNESlot  }
+    ::= { rmtsConfigurationTable 1 }
+
+-- the structure of the entry
+
+    RmtsConfigurationEntry ::= SEQUENCE
+    {
+        rmtsConfigNESlotWrite             NESlotWriteValue,
+
+        rmtsConfigInputOutputSetup        INTEGER,
+        rmtsConfigRfOutputlevel           INTEGER
+    }
+
+    rmtsConfigNESlotWrite OBJECT-TYPE
+        SYNTAX NESlotWriteValue
+        ACCESS read-write
+        STATUS optional
+        DESCRIPTION "By writing this variable a slot can be assigned
+            for devices that dont support hardware slot detection.
+            Reading '-1' means that the slot position is NOT writable."
+    ::= { rmtsConfigurationEntry 1 }
+
+    rmtsConfigInputOutputSetup OBJECT-TYPE
+        SYNTAX INTEGER
+        {
+            fourRfInputs(1),
+            twoRfInputsTwoRfOutputs(2)
+        }
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF input and output configuration"
+    ::= { rmtsConfigurationEntry 2 }
+
+    rmtsConfigRfOutputlevel OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "RF output level in units of 0.1 dBuV
+            only valid if rmtsDisplayAdditionalParamsSupported == true(1)"
+    ::= { rmtsConfigurationEntry 3 }
+
+
+--*****************************************************************************************
+-- Display group
+
+    rmtsDisplayTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF RmtsDisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { rmtsDisplay 1 }
+
+-- table of configuration entry(ro/rw)
+
+    rmtsDisplayEntry OBJECT-TYPE
+        SYNTAX RmtsDisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { rmtsNESlot  }
+    ::= { rmtsDisplayTable 1 }
+
+-- the structure of the entry
+
+    RmtsDisplayEntry ::= SEQUENCE
+    {
+        rmtsOpticsAvailable                    TruthValue,
+
+        rmtsDisplayInternalVoltage1Supported   TruthValue,
+        rmtsDisplayInternalVoltage2Supported   TruthValue,
+        rmtsDisplayInternalVoltage3Supported   TruthValue,
+        rmtsDisplayInternalVoltage4Supported   TruthValue,
+
+        rmtsDisplayInputVoltageNominal         INTEGER,
+        rmtsDisplayInternalVoltage1Nominal     INTEGER,
+        rmtsDisplayInternalVoltage2Nominal     INTEGER,
+        rmtsDisplayInternalVoltage3Nominal     INTEGER,
+        rmtsDisplayInternalVoltage4Nominal     INTEGER,
+
+        rmtsDisplayAdditionalParamsSupported   TruthValue,
+        rmtsDisplayFskTransceiverFrequency     INTEGER
+    }
+
+    rmtsOpticsAvailable OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if the RMTS includes an optical receiver
+                     Currently always reports false(2)"
+    ::={ rmtsDisplayEntry 1 }
+
+-- *****
+
+    rmtsDisplayInternalVoltage1Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 1 is supported"
+    ::={ rmtsDisplayEntry 2 }
+
+    rmtsDisplayInternalVoltage2Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 2 is supported"
+    ::={ rmtsDisplayEntry 3 }
+
+    rmtsDisplayInternalVoltage3Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 3 is supported"
+    ::={ rmtsDisplayEntry 4 }
+
+    rmtsDisplayInternalVoltage4Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if internal voltage no. 4 is supported"
+    ::={ rmtsDisplayEntry 5 }
+
+-- *****
+
+    rmtsDisplayInputVoltageNominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal input voltage"
+    ::={ rmtsDisplayEntry 6 }
+
+    rmtsDisplayInternalVoltage1Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 1"
+    ::={ rmtsDisplayEntry 7 }
+
+    rmtsDisplayInternalVoltage2Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 2"
+    ::={ rmtsDisplayEntry 8 }
+
+    rmtsDisplayInternalVoltage3Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 3"
+    ::={ rmtsDisplayEntry 9 }
+
+    rmtsDisplayInternalVoltage4Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The nominal internal voltage no. 4"
+    ::={ rmtsDisplayEntry 10 }
+
+-- *****
+
+    rmtsDisplayAdditionalParamsSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION 
+            "Reports true(1) if the following variables are supported:
+                rmtsDisplayFskTransceiverFrequency,
+                rmtsConfigRfOutputlevel
+            "
+    ::={ rmtsDisplayEntry 11 }
+
+    rmtsDisplayFskTransceiverFrequency OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The fsk tranceiver frequency in units of 0.01 MHz
+            only valid if rmtsDisplayAdditionalParamsSupported == true(1)"
+    ::={ rmtsDisplayEntry 12 }
+
+
+END
+

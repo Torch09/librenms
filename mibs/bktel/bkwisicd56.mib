@@ -1,0 +1,388 @@
+--- ****************************************************************************
+-- *
+-- * Description:   Implements definitions for the Wisi CD56-modul
+-- *
+-- * Copyright 2003 by BKtel communications GmbH
+-- *
+-- *     V.0.1 15.03.04  M. Heldmann    first draft
+-- *     V.0.2 05.04.04  M. Heldmann    InputLevelRangeValue ::= INTEGER (1..20)
+-- *     V.0.3 29.04.04  M. Heldmann    InputLevelRangeValue ::= INTEGER (0..20)
+-- *     V.0.4 04.10.06  M. Heldmann    NESlotWriteValue expanded due to new 2G6 platform needs
+-- *     V.0.5 29.05.08  M. Heldmann    renamed threshold parameters in xxxxMeasuringValuesTable
+-- *     V.0.6 11.07.13  M. Heldmann    adjusted syntax of "CommonEntry" to remove MIB compiler warnings
+-- ****************************************************************************
+
+BKTEL-HFC862-WISI-CD56-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        experimental, enterprises, TimeTicks, IpAddress, Counter
+                 FROM RFC1155-SMI
+    OBJECT-TYPE
+                 FROM RFC-1212
+        TRAP-TYPE
+                 FROM RFC-1215
+        modules, DisplayString, TruthValue, PerceivedSeverityValue, NESlotValue, ModuleWidthValue
+                 FROM   BKTEL-HFC862-BASE-MIB
+    ;
+
+    cd56                 OBJECT IDENTIFIER ::= { modules 302 }
+    cd56Common           OBJECT IDENTIFIER ::= { cd56 1 }
+    cd56States           OBJECT IDENTIFIER ::= { cd56 2 }
+    cd56Configuration    OBJECT IDENTIFIER ::= { cd56 3 }
+    cd56Control          OBJECT IDENTIFIER ::= { cd56 4 }
+    cd56MeasuringValues  OBJECT IDENTIFIER ::= { cd56 5 }
+
+
+--
+-- Type definitions
+--
+
+        NESlotWriteValue ::= INTEGER (-1..99)
+        SlopeValue ::= INTEGER (0..6)
+        InputLevelRangeValue ::= INTEGER (0..20)
+
+
+--*****************************************************************************************
+-- CD56 (Wisi Power Supply)
+
+--*****************************************************************************************
+-- cd56Common group
+
+    cd56CommonNumberOfModules OBJECT-TYPE
+        SYNTAX  INTEGER(0..50)
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Number of modules in table."
+  ::= { cd56Common 1 }
+
+    cd56CommonTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Cd56CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "The table contains all modules of the CD56-type in the NE"
+  ::= { cd56Common 2 }
+
+-- table of states entry(ro/rw)
+
+    cd56CommonEntry OBJECT-TYPE
+        SYNTAX Cd56CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { cd56NESlot }
+  ::= { cd56CommonTable 1 }
+
+-- the structure of the entry
+
+    Cd56CommonEntry ::= SEQUENCE
+    {
+        cd56NESlot                      NESlotValue,
+        cd56CommonType                  DisplayString,
+        cd56CommonDescr                 DisplayString,
+        cd56CommonFirmwareId            DisplayString,
+        cd56CommonModuleWidth           ModuleWidthValue
+    }
+
+    cd56NESlot OBJECT-TYPE
+        SYNTAX  NESlotValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The slot number of the chassis for which this
+        entry contains management information."
+    ::= { cd56CommonEntry 1 }
+
+    cd56CommonType OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE(0..32))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The type of physical module. modSlotEmpty indicates
+         an empty slot.  A Value of modSlotUnknown indicates
+         that the type of module is unknown."
+    ::= { cd56CommonEntry 2 }
+
+    cd56CommonDescr OBJECT-TYPE
+        SYNTAX  DisplayString
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+        "A textual description of the module.
+        If not available, this Value should be
+        set to a zero length string."
+    ::= { cd56CommonEntry 3 }
+
+    cd56CommonFirmwareId OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..32))
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The firmware Id of the module."
+    ::= { cd56CommonEntry 4 }
+
+    cd56CommonModuleWidth OBJECT-TYPE
+        SYNTAX ModuleWidthValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The width of the module in multiples of slots (1, 2, ...)"
+    ::= { cd56CommonEntry 5 }
+
+--*****************************************************************************************
+-- cd56MeasuringValues group
+
+-- table of measuring Values
+
+    cd56MeasuringValuesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Cd56MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+   ::= { cd56MeasuringValues 1 }
+
+-- table of measuring Values entry
+
+    cd56MeasuringValuesEntry OBJECT-TYPE
+        SYNTAX Cd56MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { cd56NESlot }
+  ::= { cd56MeasuringValuesTable 1 }
+
+--  the structure of the entry
+
+    Cd56MeasuringValuesEntry ::= SEQUENCE
+    {
+        cd56OutputVoltageLoLo          INTEGER,
+        cd56OutputVoltageLo            INTEGER,
+        cd56OutputVoltageValue         INTEGER,
+        cd56OutputVoltageHi            INTEGER,
+        cd56OutputVoltageHiHi          INTEGER
+    }
+
+-- *****
+    cd56OutputVoltageLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output voltage level low alarm threshold in steps of 0.1 dBµV"
+    ::= { cd56MeasuringValuesEntry 1 }
+
+    cd56OutputVoltageLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output voltage level low warning threshold in steps of 0.1 dBµV"
+    ::= { cd56MeasuringValuesEntry 2 }
+
+    cd56OutputVoltageValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output voltage level in steps of 0.1 dBµV"
+    ::= { cd56MeasuringValuesEntry 3 }
+
+    cd56OutputVoltageHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output voltage level high warning threshold in steps of 0.1 dBµV"
+    ::= { cd56MeasuringValuesEntry 4 }
+
+    cd56OutputVoltageHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output voltage level high alarm threshold in steps of 0.1 dBµV"
+    ::= { cd56MeasuringValuesEntry 5 }
+
+
+--*****************************************************************************************
+--  cd56States group
+
+-- Note: For every control OId there must be a correspondant alarm OId!
+
+    cd56StatesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Cd56StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { cd56States 1 }
+
+-- table of states entry(ro/rw)
+
+    cd56StatesEntry OBJECT-TYPE
+        SYNTAX Cd56StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { cd56NESlot }
+    ::= { cd56StatesTable 1 }
+
+-- the structure of the entry
+
+    Cd56StatesEntry ::= SEQUENCE
+    {
+        cd56StatesOutputVoltageLow       PerceivedSeverityValue,
+        cd56StatesOutputVoltageHigh      PerceivedSeverityValue,
+        cd56StatesDefective              PerceivedSeverityValue
+    }
+
+    cd56StatesOutputVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output voltage level low"
+    ::= { cd56StatesEntry 1 }
+
+    cd56StatesOutputVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Output voltage level high"
+    ::= { cd56StatesEntry 2 }
+
+    cd56StatesDefective OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The NEC has lost the connection to the device. 
+             Reason may be a removed or defective device.
+             Note that this state is set by the NEC and not 
+             by the device" 
+    ::= { cd56StatesEntry 3 }
+
+--*****************************************************************************************
+--  cd56Control group
+
+  cd56ControlTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF Cd56ControlEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION ""
+  ::= { cd56Control 1 }
+
+-- table of control entry(ro/rw)
+
+  cd56ControlEntry OBJECT-TYPE
+    SYNTAX Cd56ControlEntry
+    ACCESS not-accessible
+    STATUS mandatory
+    DESCRIPTION "Alarms for a module."
+    INDEX { cd56NESlot }
+  ::= { cd56ControlTable 1 }
+
+-- the structure of the entry
+
+    Cd56ControlEntry ::= SEQUENCE
+    {
+        cd56ControlReset  TruthValue
+    }
+
+    cd56ControlReset OBJECT-TYPE
+      SYNTAX TruthValue
+      ACCESS read-write
+      STATUS mandatory
+      DESCRIPTION "Reset the module."
+    ::= { cd56ControlEntry 1 }
+
+
+--*****************************************************************************************
+-- cd56Configuration group
+
+    cd56ConfigurationTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Cd56ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { cd56Configuration 1 }
+
+-- table of configuration entry(ro/rw)
+
+    cd56ConfigurationEntry OBJECT-TYPE
+        SYNTAX Cd56ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { cd56NESlot  }
+    ::= { cd56ConfigurationTable 1 }
+
+-- the structure of the entry
+
+    Cd56ConfigurationEntry ::= SEQUENCE
+    {
+        cd56ConfigNESlotWrite                  NESlotWriteValue,
+        cd56ConfigSlope                        SlopeValue,
+        cd56ConfigInputLevelRange              InputLevelRangeValue,
+        cd56ConfigOutputVoltageLimitLoLo       INTEGER,
+        cd56ConfigOutputVoltageLimitLo         INTEGER,
+        cd56ConfigOutputVoltageLimitHi         INTEGER,
+        cd56ConfigOutputVoltageLimitHiHi       INTEGER
+    }
+
+    cd56ConfigNESlotWrite OBJECT-TYPE
+        SYNTAX NESlotWriteValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "By writing this variable a slot can be assigned
+            for devices that dont support hardware slot detection.
+            Reading '-1' means that the slot position is NOT writable."
+    ::= { cd56ConfigurationEntry 1 }
+
+    cd56ConfigSlope OBJECT-TYPE
+        SYNTAX  SlopeValue
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "Slope index"
+    ::={ cd56ConfigurationEntry 2 }
+
+    cd56ConfigInputLevelRange OBJECT-TYPE
+        SYNTAX  InputLevelRangeValue
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "Input level range in dB (offset from 75 dBµV)"
+    ::={ cd56ConfigurationEntry 3 }
+
+    cd56ConfigOutputVoltageLimitLoLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "Output voltage level low alarm limit in 0.1 dBµV units"
+    ::={ cd56ConfigurationEntry 4 }
+
+    cd56ConfigOutputVoltageLimitLo OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "Output voltage level low warning limit in 0.1 dBµV units"
+    ::={ cd56ConfigurationEntry 5 }
+
+    cd56ConfigOutputVoltageLimitHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "Output voltage level high warning limit in 0.1 dBµV units"
+    ::={ cd56ConfigurationEntry 6 }
+
+    cd56ConfigOutputVoltageLimitHiHi OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+            "Output voltage level high alarm limit in 0.1 dBµV units"
+    ::={ cd56ConfigurationEntry 7 }
+
+
+--*****************************************************************************************
+-- Display group
+
+
+
+
+--*****************************************************************************************
+END

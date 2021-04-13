@@ -1,0 +1,1362 @@
+-- *********************************************************************************************
+-- *
+-- * Description:   Implements definitions for the Ops2-modul
+-- *
+-- * Copyright 2012 by BKtel communications GmbH
+-- *
+-- *     V.0.1 17.08.2012  M. Heldmann first draft
+-- *     V.0.2 05.08.2013  M. Heldmann description corrected
+-- *     V.0.3 06.05.2014  M. Heldmann marked all internal voltage parameters as 'optional'
+-- *     V.0.4 05.09.2014  M. Heldmann changed CommonModuleWidth and ConfigNESlotWrite STATUS to optional
+-- *********************************************************************************************
+
+BKTEL-HFC862-OPS2-V01-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        OBJECT-TYPE
+                 FROM RFC-1212
+        modules, DisplayString, TruthValue, PerceivedSeverityValue, NESlotValue, ModuleWidthValue
+                 FROM BKTEL-HFC862-BASE-MIB
+    ;
+
+    ops2                  OBJECT IDENTIFIER ::= { modules 121 }
+    ops2Common            OBJECT IDENTIFIER ::= { ops2 1 }
+    ops2States            OBJECT IDENTIFIER ::= { ops2 2 }
+    ops2Configuration     OBJECT IDENTIFIER ::= { ops2 3 }
+    ops2Control           OBJECT IDENTIFIER ::= { ops2 4 }
+    ops2MeasuringValues   OBJECT IDENTIFIER ::= { ops2 5 }
+    ops2Display           OBJECT IDENTIFIER ::= { ops2 6 }
+
+
+--
+-- Type definitions
+--
+
+    Ops2SwitchModeValue ::= INTEGER
+    {
+        manual(1),
+        automaticRevertive(2),
+        automaticNonRevertive(3)
+    }
+
+    Ops2SwitchPositionValue ::= INTEGER
+    {
+        nominalPosition(1),
+        redundantPosition(2)
+    }
+
+    Ops2DetectionTypeValue ::= INTEGER
+    {
+        inputpowerOnly(1),
+        rfOmiAndInputpower(2)
+    }
+
+    Ops2TestmodeAccessValue ::= INTEGER
+    {
+        testmodeAllowed(1),
+        testmodeBlocked(2)
+    }
+
+    Ops2SwitchSpeedValue ::= INTEGER
+    {
+        fast(1),
+        regular(2)
+    }
+
+    Ops2TestpointModeValue ::= INTEGER
+    {
+        activeChannel(1),
+        fixed(2)
+    }
+
+    Ops2FallbackDelayValue ::= INTEGER (5..300)
+
+    NESlotWriteValue ::= INTEGER (-1..99)
+
+
+-- MibCompiler defs --
+-- $idx$: InternalVoltage
+-- $idx$: SwUnit
+-- MibCompiler defs --
+
+
+--*****************************************************************************************
+-- OPS2 ( Dual optical switch )
+--*****************************************************************************************
+
+-- ops2Common group
+
+    ops2CommonNumberOfModules OBJECT-TYPE
+        SYNTAX  INTEGER(0..50)
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Number of modules in table."
+    ::= { ops2Common 1 }
+
+    ops2CommonTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Ops2CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "The table contains all modules of the OPS2-type in the NE"
+    ::= { ops2Common 2 }
+
+-- table of states entry(ro/rw)
+
+    ops2CommonEntry OBJECT-TYPE
+        SYNTAX Ops2CommonEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { ops2NESlot }
+    ::= { ops2CommonTable 1 }
+
+-- the structure of the entry
+
+    Ops2CommonEntry ::= SEQUENCE
+    {
+        ops2NESlot                      NESlotValue,
+        ops2CommonType                  DisplayString,
+        ops2CommonDescr                 DisplayString,
+        ops2CommonFirmwareId            DisplayString,
+        ops2CommonModuleWidth           ModuleWidthValue
+    }
+
+    ops2NESlot OBJECT-TYPE
+        SYNTAX  NESlotValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The slot number of the chassis for which this
+        entry contains management information."
+    ::= { ops2CommonEntry 1 }
+
+    ops2CommonType OBJECT-TYPE
+        SYNTAX  DisplayString  (SIZE(0..32))
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION
+        "The type of physical module. modSlotEmpty indicates
+         an empty slot.  A Value of modSlotUnknown indicates
+         that the type of module is unknown."
+    ::= { ops2CommonEntry 2 }
+
+    ops2CommonDescr OBJECT-TYPE
+        SYNTAX  DisplayString
+        ACCESS  read-write
+        STATUS  mandatory
+        DESCRIPTION
+        "A textual description of the module.
+        If not available, this Value should be
+        set to a zero length string."
+    ::= { ops2CommonEntry 3 }
+
+    ops2CommonFirmwareId OBJECT-TYPE
+        SYNTAX DisplayString (SIZE(0..32))
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The firmware Id of the module."
+    ::= { ops2CommonEntry 4 }
+
+    ops2CommonModuleWidth OBJECT-TYPE
+        SYNTAX ModuleWidthValue
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION
+        "The width of the module in multiples of slots (1, 2, ...)
+        Returns 0 for special housings (for example 19inch, etc...)"
+    ::= { ops2CommonEntry 5 }
+
+--*****************************************************************************************
+-- ops2MeasuringValues group
+
+-- table of measuring Values
+
+    ops2MeasuringValuesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Ops2MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { ops2MeasuringValues 1 }
+
+-- table of measuring Values entry
+
+    ops2MeasuringValuesEntry OBJECT-TYPE
+        SYNTAX Ops2MeasuringValuesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Common-Values for a module."
+        INDEX { ops2NESlot }
+    ::= { ops2MeasuringValuesTable 1 }
+
+--  the structure of the entry
+
+    Ops2MeasuringValuesEntry ::= SEQUENCE
+    {
+        ops2InputPowerNominalSwUnit1LoLo     INTEGER,
+        ops2InputPowerNominalSwUnit1Lo       INTEGER,
+        ops2InputPowerNominalSwUnit1Value    INTEGER,
+        ops2InputPowerNominalSwUnit1Hi       INTEGER,
+        ops2InputPowerNominalSwUnit1HiHi     INTEGER,
+
+        ops2InputPowerNominalSwUnit2LoLo     INTEGER,
+        ops2InputPowerNominalSwUnit2Lo       INTEGER,
+        ops2InputPowerNominalSwUnit2Value    INTEGER,
+        ops2InputPowerNominalSwUnit2Hi       INTEGER,
+        ops2InputPowerNominalSwUnit2HiHi     INTEGER,
+
+        ops2InputPowerRedundantSwUnit1LoLo   INTEGER,
+        ops2InputPowerRedundantSwUnit1Lo     INTEGER,
+        ops2InputPowerRedundantSwUnit1Value  INTEGER,
+        ops2InputPowerRedundantSwUnit1Hi     INTEGER,
+        ops2InputPowerRedundantSwUnit1HiHi   INTEGER,
+
+        ops2InputPowerRedundantSwUnit2LoLo   INTEGER,
+        ops2InputPowerRedundantSwUnit2Lo     INTEGER,
+        ops2InputPowerRedundantSwUnit2Value  INTEGER,
+        ops2InputPowerRedundantSwUnit2Hi     INTEGER,
+        ops2InputPowerRedundantSwUnit2HiHi   INTEGER,
+
+        ops2RfOmiNominalSwUnit1LoLo          INTEGER,
+        ops2RfOmiNominalSwUnit1Lo            INTEGER,
+        ops2RfOmiNominalSwUnit1Value         INTEGER,
+        ops2RfOmiNominalSwUnit1Hi            INTEGER,
+        ops2RfOmiNominalSwUnit1HiHi          INTEGER,
+
+        ops2RfOmiNominalSwUnit2LoLo          INTEGER,
+        ops2RfOmiNominalSwUnit2Lo            INTEGER,
+        ops2RfOmiNominalSwUnit2Value         INTEGER,
+        ops2RfOmiNominalSwUnit2Hi            INTEGER,
+        ops2RfOmiNominalSwUnit2HiHi          INTEGER,
+
+        ops2RfOmiRedundantSwUnit1LoLo        INTEGER,
+        ops2RfOmiRedundantSwUnit1Lo          INTEGER,
+        ops2RfOmiRedundantSwUnit1Value       INTEGER,
+        ops2RfOmiRedundantSwUnit1Hi          INTEGER,
+        ops2RfOmiRedundantSwUnit1HiHi        INTEGER,
+
+        ops2RfOmiRedundantSwUnit2LoLo        INTEGER,
+        ops2RfOmiRedundantSwUnit2Lo          INTEGER,
+        ops2RfOmiRedundantSwUnit2Value       INTEGER,
+        ops2RfOmiRedundantSwUnit2Hi          INTEGER,
+        ops2RfOmiRedundantSwUnit2HiHi        INTEGER,
+
+        ops2TemperatureLoLo                  INTEGER,
+        ops2TemperatureLo                    INTEGER,
+        ops2TemperatureValue                 INTEGER,
+        ops2TemperatureHi                    INTEGER,
+        ops2TemperatureHiHi                  INTEGER,
+                                           
+        ops2InputVoltageLoLo                 INTEGER,
+        ops2InputVoltageLo                   INTEGER,
+        ops2InputVoltageValue                INTEGER,
+        ops2InputVoltageHi                   INTEGER,
+        ops2InputVoltageHiHi                 INTEGER,
+                                           
+        ops2InternalVoltage1LoLo             INTEGER,
+        ops2InternalVoltage1Lo               INTEGER,
+        ops2InternalVoltage1Value            INTEGER,
+        ops2InternalVoltage1Hi               INTEGER,
+        ops2InternalVoltage1HiHi             INTEGER,
+                                           
+        ops2InternalVoltage2LoLo             INTEGER,
+        ops2InternalVoltage2Lo               INTEGER,
+        ops2InternalVoltage2Value            INTEGER,
+        ops2InternalVoltage2Hi               INTEGER,
+        ops2InternalVoltage2HiHi             INTEGER
+    }
+
+-- *****
+    ops2InputPowerNominalSwUnit1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power low alarm threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 1 }
+
+    ops2InputPowerNominalSwUnit1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power low warning threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 2 }
+
+    ops2InputPowerNominalSwUnit1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 3 }
+
+    ops2InputPowerNominalSwUnit1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power high warning threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 4 }
+
+    ops2InputPowerNominalSwUnit1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power high alarm threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 5 }
+
+-- *****
+    ops2InputPowerNominalSwUnit2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power low alarm threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 6 }
+
+    ops2InputPowerNominalSwUnit2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power low warning threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 7 }
+
+    ops2InputPowerNominalSwUnit2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 8 }
+
+    ops2InputPowerNominalSwUnit2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power high warning threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 9 }
+
+    ops2InputPowerNominalSwUnit2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power high alarm threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 10 }
+
+-- *****
+    ops2InputPowerRedundantSwUnit1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power low alarm threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 11 }
+
+    ops2InputPowerRedundantSwUnit1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power low warning threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 12 }
+
+    ops2InputPowerRedundantSwUnit1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 13 }
+
+    ops2InputPowerRedundantSwUnit1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power high warning threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 14 }
+
+    ops2InputPowerRedundantSwUnit1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power high alarm threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 15 }
+
+-- *****
+    ops2InputPowerRedundantSwUnit2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power low alarm threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 16 }
+
+    ops2InputPowerRedundantSwUnit2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power low warning threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 17 }
+
+    ops2InputPowerRedundantSwUnit2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 18 }
+
+    ops2InputPowerRedundantSwUnit2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power high warning threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 19 }
+
+    ops2InputPowerRedundantSwUnit2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power high alarm threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 20 }
+
+-- *****
+    ops2RfOmiNominalSwUnit1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI low alarm threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 21 }
+
+    ops2RfOmiNominalSwUnit1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI low warning threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 22 }
+
+    ops2RfOmiNominalSwUnit1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 23 }
+
+    ops2RfOmiNominalSwUnit1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI high warning threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 24 }
+
+    ops2RfOmiNominalSwUnit1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI high alarm threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 25 }
+
+-- *****
+    ops2RfOmiNominalSwUnit2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI low alarm threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 26 }
+
+    ops2RfOmiNominalSwUnit2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI low warning threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 27 }
+
+    ops2RfOmiNominalSwUnit2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 28 }
+
+    ops2RfOmiNominalSwUnit2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI high warning threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 29 }
+
+    ops2RfOmiNominalSwUnit2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI high alarm threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 30 }
+
+-- *****
+    ops2RfOmiRedundantSwUnit1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI low alarm threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 31 }
+
+    ops2RfOmiRedundantSwUnit1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI low warning threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 32 }
+
+    ops2RfOmiRedundantSwUnit1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 33 }
+
+    ops2RfOmiRedundantSwUnit1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI high warning threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 34 }
+
+    ops2RfOmiRedundantSwUnit1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI high alarm threshold in steps of 0.1 dBm. (Switch unit #1)"
+    ::= { ops2MeasuringValuesEntry 35 }
+
+-- *****
+    ops2RfOmiRedundantSwUnit2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI low alarm threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 36 }
+
+    ops2RfOmiRedundantSwUnit2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI low warning threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 37 }
+
+    ops2RfOmiRedundantSwUnit2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 38 }
+
+    ops2RfOmiRedundantSwUnit2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI high warning threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 39 }
+
+    ops2RfOmiRedundantSwUnit2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI high alarm threshold in steps of 0.1 dBm. (Switch unit #2)"
+    ::= { ops2MeasuringValuesEntry 40 }
+
+-- *****
+     ops2TemperatureLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low alarm threshold in steps of 0.1 celsius degrees."
+    ::= { ops2MeasuringValuesEntry 41 }
+
+    ops2TemperatureLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature low warning threshold in steps of 0.1 celsius degrees."
+    ::= { ops2MeasuringValuesEntry 42 }
+
+    ops2TemperatureValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature in steps of 0.1 celsius degrees."
+    ::= { ops2MeasuringValuesEntry 43 }
+
+    ops2TemperatureHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high warning threshold in steps of 0.1 celsius degrees."
+    ::= { ops2MeasuringValuesEntry 44 }
+
+    ops2TemperatureHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The module temperature high alarm threshold in steps of 0.1 celsius degrees."
+    ::= { ops2MeasuringValuesEntry 45 }
+
+-- *****
+    ops2InputVoltageLoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage low alarm threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 46 }
+
+    ops2InputVoltageLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage low warning threshold in steps of 0.1V.
+                     see ops2DisplayInputVoltageNominal"
+    ::= { ops2MeasuringValuesEntry 47 }
+
+    ops2InputVoltageValue OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 48 }
+
+    ops2InputVoltageHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage high warning threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 49 }
+
+    ops2InputVoltageHiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The input voltage high alarm threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 50 }
+
+-- *****
+    ops2InternalVoltage1LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The internal voltage no. 1 low alarm threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 51 }
+
+    ops2InternalVoltage1Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The internal voltage no. 1 low warning threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 52 }
+
+    ops2InternalVoltage1Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The internal voltage no. 1 in steps of 0.1V.
+                     see ops2DisplayInternalVoltage1Nominal and ops2DisplayInternalVoltage1Supported"
+    ::= { ops2MeasuringValuesEntry 53 }
+
+    ops2InternalVoltage1Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The internal voltage no. 1 high warning threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 54 }
+
+    ops2InternalVoltage1HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The internal voltage no. 1 high alarm threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 55 }
+
+-- *****
+    ops2InternalVoltage2LoLo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The internal voltage no. 2 low alarm threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 56 }
+
+    ops2InternalVoltage2Lo OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The internal voltage no. 2 low warning threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 57 }
+
+    ops2InternalVoltage2Value OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The internal voltage no. 2 in steps of 0.1V.
+                     see ops2DisplayInternalVoltage2Nominal and ops2DisplayInternalVoltage2Supported"
+    ::= { ops2MeasuringValuesEntry 58 }
+
+    ops2InternalVoltage2Hi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The internal voltage no. 2 high warning threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 59 }
+
+    ops2InternalVoltage2HiHi OBJECT-TYPE
+        SYNTAX INTEGER
+        ACCESS read-only
+        STATUS optional
+        DESCRIPTION "The internal voltage no. 2 high alarm threshold in steps of 0.1V."
+    ::= { ops2MeasuringValuesEntry 60 }
+
+
+--*****************************************************************************************
+--  ops2States group
+
+-- Note: For every control OId there must be a correspondant alarm OId!
+
+    ops2StatesTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Ops2StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { ops2States 1 }
+
+-- table of states entry(ro/rw)
+
+    ops2StatesEntry OBJECT-TYPE
+        SYNTAX Ops2StatesEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { ops2NESlot }
+    ::= { ops2StatesTable 1 }
+
+-- the structure of the entry
+
+    Ops2StatesEntry ::= SEQUENCE
+    {
+        ops2StatesBootloader                      PerceivedSeverityValue,
+        ops2StatesCommLoss                        PerceivedSeverityValue,
+        ops2StatesTemperatureLow                  PerceivedSeverityValue,
+        ops2StatesTemperatureHigh                 PerceivedSeverityValue,
+        ops2StatesInputVoltageLow                 PerceivedSeverityValue,
+        ops2StatesInputVoltageHigh                PerceivedSeverityValue,
+        ops2StatesInternalVoltage                 PerceivedSeverityValue,
+        ops2StatesInputPowerNominalSwUnit1Low     PerceivedSeverityValue,
+        ops2StatesInputPowerNominalSwUnit2Low     PerceivedSeverityValue,
+        ops2StatesInputPowerNominalSwUnit1High    PerceivedSeverityValue,
+        ops2StatesInputPowerNominalSwUnit2High    PerceivedSeverityValue,
+        ops2StatesInputPowerRedundantSwUnit1Low   PerceivedSeverityValue,
+        ops2StatesInputPowerRedundantSwUnit2Low   PerceivedSeverityValue,
+        ops2StatesInputPowerRedundantSwUnit1High  PerceivedSeverityValue,
+        ops2StatesInputPowerRedundantSwUnit2High  PerceivedSeverityValue,
+        ops2StatesRfOmiNominalSwUnit1Low          PerceivedSeverityValue,
+        ops2StatesRfOmiNominalSwUnit2Low          PerceivedSeverityValue,
+        ops2StatesRfOmiNominalSwUnit1High         PerceivedSeverityValue,
+        ops2StatesRfOmiNominalSwUnit2High         PerceivedSeverityValue,
+        ops2StatesRfOmiRedundantSwUnit1Low        PerceivedSeverityValue,
+        ops2StatesRfOmiRedundantSwUnit2Low        PerceivedSeverityValue,
+        ops2StatesRfOmiRedundantSwUnit1High       PerceivedSeverityValue,
+        ops2StatesRfOmiRedundantSwUnit2High       PerceivedSeverityValue,
+        ops2StatesSwitchMalfunctionSwUnit1        PerceivedSeverityValue,
+        ops2StatesSwitchMalfunctionSwUnit2        PerceivedSeverityValue,
+        ops2StatesTestmodeActiveSwUnit1           PerceivedSeverityValue,
+        ops2StatesTestmodeActiveSwUnit2           PerceivedSeverityValue,
+        ops2StatesSwitchedToRedundantSwUnit1      PerceivedSeverityValue,
+        ops2StatesSwitchedToRedundantSwUnit2      PerceivedSeverityValue,
+        ops2StatesManualModeSwUnit1               PerceivedSeverityValue,
+        ops2StatesManualModeSwUnit2               PerceivedSeverityValue,
+        ops2StatesSwitchSpeedReducedSwUnit1       PerceivedSeverityValue,
+        ops2StatesSwitchSpeedReducedSwUnit2       PerceivedSeverityValue,
+        ops2StatesPowerSupplyLeft                 PerceivedSeverityValue,
+        ops2StatesPowerSupplyRight                PerceivedSeverityValue,
+        ops2StatesFanLeft                         PerceivedSeverityValue,
+        ops2StatesFanRight                        PerceivedSeverityValue
+    }
+
+    ops2StatesBootloader OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The device is running in bootloader mode
+             without a legal application software."
+    ::= { ops2StatesEntry 1 }
+
+    ops2StatesCommLoss OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION
+            "The NEC has lost the connection to the device.
+             Reason may be a removed or defective device.
+             Note that this state is set by the NEC and not
+             by the device"
+    ::= { ops2StatesEntry 2 }
+
+    ops2StatesTemperatureLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device internal temperature low"
+    ::= { ops2StatesEntry 3 }
+
+    ops2StatesTemperatureHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Device internal temperature high"
+    ::= { ops2StatesEntry 4 }
+
+    ops2StatesInputVoltageLow OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage low"
+    ::= { ops2StatesEntry 5 }
+
+    ops2StatesInputVoltageHigh OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Input voltage high"
+    ::= { ops2StatesEntry 6 }
+
+    ops2StatesInternalVoltage OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Internal voltage high or low"
+    ::= { ops2StatesEntry 7 }
+
+    ops2StatesInputPowerNominalSwUnit1Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power low. (Switch unit #1)"
+    ::= { ops2StatesEntry 8 }
+
+    ops2StatesInputPowerNominalSwUnit2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power low. (Switch unit #2)"
+    ::= { ops2StatesEntry 9 }
+
+    ops2StatesInputPowerNominalSwUnit1High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power high. (Switch unit #1)"
+    ::= { ops2StatesEntry 10 }
+
+    ops2StatesInputPowerNominalSwUnit2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's optical input power high. (Switch unit #2)"
+    ::= { ops2StatesEntry 11 }
+
+    ops2StatesInputPowerRedundantSwUnit1Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power low. (Switch unit #1)"
+    ::= { ops2StatesEntry 12 }
+
+    ops2StatesInputPowerRedundantSwUnit2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power low. (Switch unit #2)"
+    ::= { ops2StatesEntry 13 }
+
+    ops2StatesInputPowerRedundantSwUnit1High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power high. (Switch unit #1)"
+    ::= { ops2StatesEntry 14 }
+
+    ops2StatesInputPowerRedundantSwUnit2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's optical input power high. (Switch unit #2)"
+    ::= { ops2StatesEntry 15 }
+
+    ops2StatesRfOmiNominalSwUnit1Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI low. (Switch unit #1)"
+    ::= { ops2StatesEntry 16 }
+
+    ops2StatesRfOmiNominalSwUnit2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI low. (Switch unit #2)"
+    ::= { ops2StatesEntry 17 }
+
+    ops2StatesRfOmiNominalSwUnit1High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI high. (Switch unit #1)"
+    ::= { ops2StatesEntry 18 }
+
+    ops2StatesRfOmiNominalSwUnit2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Nominal channel's RF OMI high. (Switch unit #2)"
+    ::= { ops2StatesEntry 19 }
+
+    ops2StatesRfOmiRedundantSwUnit1Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI low. (Switch unit #1)"
+    ::= { ops2StatesEntry 20 }
+
+    ops2StatesRfOmiRedundantSwUnit2Low OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI low. (Switch unit #2)"
+    ::= { ops2StatesEntry 21 }
+
+    ops2StatesRfOmiRedundantSwUnit1High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI high. (Switch unit #1)"
+    ::= { ops2StatesEntry 22 }
+
+    ops2StatesRfOmiRedundantSwUnit2High OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Redundant channel's RF OMI high. (Switch unit #2)"
+    ::= { ops2StatesEntry 23 }
+
+    ops2StatesSwitchMalfunctionSwUnit1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Switch unit fails with internal error (Switch unit #1)"
+    ::= { ops2StatesEntry 24 }
+
+    ops2StatesSwitchMalfunctionSwUnit2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Switch unit fails with internal error (Switch unit #2)"
+    ::= { ops2StatesEntry 25 }
+
+    ops2StatesTestmodeActiveSwUnit1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Testmode button on switch unit pressed (Switch unit #1)"
+    ::= { ops2StatesEntry 26 }
+
+    ops2StatesTestmodeActiveSwUnit2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Testmode button on switch unit pressed (Switch unit #2)"
+    ::= { ops2StatesEntry 27 }
+
+    ops2StatesSwitchedToRedundantSwUnit1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Switch unit has switched to the redundant channel (Switch unit #1)"
+    ::= { ops2StatesEntry 28 }
+
+    ops2StatesSwitchedToRedundantSwUnit2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Switch unit has switched to the redundant channel (Switch unit #2)"
+    ::= { ops2StatesEntry 29 }
+
+    ops2StatesManualModeSwUnit1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Switch position is under manual control, no automatic switching (Switch unit #1)"
+    ::= { ops2StatesEntry 30 }
+
+    ops2StatesManualModeSwUnit2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Switch position is under manual control, no automatic switching (Switch unit #2)"
+    ::= { ops2StatesEntry 31 }
+
+    ops2StatesSwitchSpeedReducedSwUnit1 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Switch unit not able to run with full switching speed (Switch unit #1)
+                     Reason is a too wide optical input power threshold configuration"
+    ::= { ops2StatesEntry 32 }
+
+    ops2StatesSwitchSpeedReducedSwUnit2 OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "Switch unit not able to run with full switching speed (Switch unit #2)
+                     Reason is a too wide optical input power threshold configuration"
+    ::= { ops2StatesEntry 33 }
+
+    ops2StatesPowerSupplyLeft OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The left (looking from front) power supply unit fails.
+        Modules that do not support external fan and power supply warnings always report clear(5)"
+    ::= { ops2StatesEntry 34 }
+
+    ops2StatesPowerSupplyRight OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The right (looking from front) power supply unit fails.
+        Modules that do not support external fan and power supply warnings always report clear(5)"
+    ::= { ops2StatesEntry 35 }
+
+    ops2StatesFanLeft OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The left (looking from front) fan unit fails.
+        Modules that do not support external fan and power supply warnings always report clear(5)"
+    ::= { ops2StatesEntry 36 }
+
+    ops2StatesFanRight OBJECT-TYPE
+        SYNTAX PerceivedSeverityValue
+        ACCESS read-only
+        STATUS mandatory
+        DESCRIPTION "The right (looking from front) fan unit fails.
+        Modules that do not support external fan and power supply warnings always report clear(5)"
+    ::= { ops2StatesEntry 37 }
+
+
+--*****************************************************************************************
+--  ops2Control group
+
+    ops2ControlTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Ops2ControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { ops2Control 1 }
+
+-- table of control entry(ro/rw)
+
+    ops2ControlEntry OBJECT-TYPE
+        SYNTAX Ops2ControlEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION "Alarms for a module."
+        INDEX { ops2NESlot }
+    ::= { ops2ControlTable 1 }
+
+-- the structure of the entry
+
+    Ops2ControlEntry ::= SEQUENCE
+    {
+        ops2ControlReset            TruthValue,
+        ops2ControlModuleLedBlink   TruthValue
+    }
+
+    ops2ControlReset OBJECT-TYPE
+      SYNTAX TruthValue
+      ACCESS read-write
+      STATUS mandatory
+      DESCRIPTION "Reset the module."
+    ::= { ops2ControlEntry 1 }
+
+    ops2ControlModuleLedBlink OBJECT-TYPE
+        SYNTAX TruthValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Writing this variable to true(1) lets the device's
+        modul LED blink green for 10 seconds.
+        Writing this variable to false(2) stops blinking at once.
+        This variable always returns false(2) on read requests"
+    ::= { ops2ControlEntry 2 }
+
+--*****************************************************************************************
+-- ops2Configuration group
+
+    ops2ConfigurationTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Ops2ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { ops2Configuration 1 }
+
+-- table of configuration entry(ro/rw)
+
+    ops2ConfigurationEntry OBJECT-TYPE
+        SYNTAX Ops2ConfigurationEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { ops2NESlot  }
+    ::= { ops2ConfigurationTable 1 }
+
+-- the structure of the entry
+
+    Ops2ConfigurationEntry ::= SEQUENCE
+    {
+        ops2ConfigNESlotWrite             NESlotWriteValue,
+
+        ops2ConfigSwitchModeSwUnit1       Ops2SwitchModeValue,
+        ops2ConfigSwitchModeSwUnit2       Ops2SwitchModeValue,
+        ops2ConfigSwitchPositionSwUnit1   Ops2SwitchPositionValue,
+        ops2ConfigSwitchPositionSwUnit2   Ops2SwitchPositionValue,
+        ops2ConfigDetectionTypeSwUnit1    Ops2DetectionTypeValue,
+        ops2ConfigDetectionTypeSwUnit2    Ops2DetectionTypeValue,
+        ops2ConfigSwitchSpeedSwUnit1      Ops2SwitchSpeedValue,
+        ops2ConfigSwitchSpeedSwUnit2      Ops2SwitchSpeedValue,
+        ops2ConfigFallbackDelaySwUnit1    Ops2FallbackDelayValue,
+        ops2ConfigFallbackDelaySwUnit2    Ops2FallbackDelayValue,
+        ops2ConfigTestmodeAccess          Ops2TestmodeAccessValue,
+        ops2ConfigTestpointMode           Ops2TestpointModeValue
+    }
+
+    ops2ConfigNESlotWrite OBJECT-TYPE
+        SYNTAX NESlotWriteValue
+        ACCESS read-write
+        STATUS optional
+        DESCRIPTION "By writing this variable a slot can be assigned
+            for devices that dont support hardware slot detection.
+            Reading '-1' means that the slot position is NOT writable."
+   ::= { ops2ConfigurationEntry 1 }
+
+    ops2ConfigSwitchModeSwUnit1 OBJECT-TYPE
+        SYNTAX Ops2SwitchModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Switch mode. (Switch unit #1)
+                      manual(1),
+                      automaticRevertive(2),
+                      automaticNonRevertive(3)
+                    "
+    ::= { ops2ConfigurationEntry 2 }
+
+    ops2ConfigSwitchModeSwUnit2 OBJECT-TYPE
+        SYNTAX Ops2SwitchModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Switch mode. (Switch unit #2)
+                      manual(1),
+                      automaticRevertive(2),
+                      automaticNonRevertive(3)
+                    "
+    ::= { ops2ConfigurationEntry 3 }
+
+    ops2ConfigSwitchPositionSwUnit1 OBJECT-TYPE
+        SYNTAX Ops2SwitchPositionValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Switch position. (Switch unit #1)
+                      nominalPosition(1),
+                      redundantPosition(2)
+                    "
+    ::= { ops2ConfigurationEntry 4 }
+
+    ops2ConfigSwitchPositionSwUnit2 OBJECT-TYPE
+        SYNTAX Ops2SwitchPositionValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Switch position. (Switch unit #2)
+                      nominalPosition(1),
+                      redundantPosition(2)
+                    "
+    ::= { ops2ConfigurationEntry 5 }
+
+    ops2ConfigDetectionTypeSwUnit1 OBJECT-TYPE
+        SYNTAX Ops2DetectionTypeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Switch detection type. (Switch unit #1)
+                      inputpowerOnly(1),
+                      rfOmiAndInputpower(2)
+                    "
+    ::= { ops2ConfigurationEntry 6 }
+
+    ops2ConfigDetectionTypeSwUnit2 OBJECT-TYPE
+        SYNTAX Ops2DetectionTypeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Switch detection type. (Switch unit #2)
+                      inputpowerOnly(1),
+                      rfOmiAndInputpower(2)
+                    "
+    ::= { ops2ConfigurationEntry 7 }
+
+    ops2ConfigSwitchSpeedSwUnit1 OBJECT-TYPE
+        SYNTAX Ops2SwitchSpeedValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Switch speed control. (Switch unit #1)
+                      fast(1),   -> The switch unit will switch as fast as possible when input level drops below alarm limit
+                      regular(2) -> The switch unit is moderately fast and will only switch after a slight delay to avoid unnecessary switching
+                    "
+    ::= { ops2ConfigurationEntry 8 }
+
+    ops2ConfigSwitchSpeedSwUnit2 OBJECT-TYPE
+        SYNTAX Ops2SwitchSpeedValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Switch speed control. (Switch unit #2)
+                      fast(1),   -> The switch unit will switch as fast as possible when input level drops below alarm limit
+                      regular(2) -> The switch unit is moderately fast and will only switch after a slight delay to avoid unnecessary switching
+                    "
+    ::= { ops2ConfigurationEntry 9 }
+
+    ops2ConfigFallbackDelaySwUnit1 OBJECT-TYPE
+        SYNTAX Ops2FallbackDelayValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Switch fallback delay in 'automatic revertive' mode in seconds. (Switch unit #1)"
+    ::= { ops2ConfigurationEntry 10 }
+
+    ops2ConfigFallbackDelaySwUnit2 OBJECT-TYPE
+        SYNTAX Ops2FallbackDelayValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Switch fallback delay in 'automatic revertive' mode in seconds. (Switch unit #2)"
+    ::= { ops2ConfigurationEntry 11 }
+
+    ops2ConfigTestmodeAccess OBJECT-TYPE
+        SYNTAX Ops2TestmodeAccessValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Testmode button access mode.
+                      testmodeAllowed(1),
+                      testmodeBlocked(2)
+                    "
+    ::= { ops2ConfigurationEntry 12 }
+
+    ops2ConfigTestpointMode OBJECT-TYPE
+        SYNTAX Ops2TestpointModeValue
+        ACCESS read-write
+        STATUS mandatory
+        DESCRIPTION "Testpoint configuration. (Switch unit #1)
+                      activeChannel(1), -> TP1 will be connected to the active channel of switch unit #1
+                                           TP2 will be connected to the active channel of switch unit #2
+                      fixed(2)          -> TP1 will be connected to switch unit #1 nominal channel
+                                           TP2 will be connected to switch unit #1 redundant channel
+                                           Switch unit #2 is not connected to a TP in this mode
+                    "
+    ::= { ops2ConfigurationEntry 13 }
+
+
+--*****************************************************************************************
+-- Display group
+
+    ops2DisplayTable OBJECT-TYPE
+        SYNTAX SEQUENCE OF Ops2DisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+    ::= { ops2Display 1 }
+
+-- table of configuration entry(ro/rw)
+
+    ops2DisplayEntry OBJECT-TYPE
+        SYNTAX Ops2DisplayEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION ""
+        INDEX { ops2NESlot  }
+    ::= { ops2DisplayTable 1 }
+
+-- the structure of the entry
+
+    Ops2DisplayEntry ::= SEQUENCE
+    {
+        ops2SecondSwitchUnitAvailable          TruthValue,
+        ops2RfOmiDetectionSupported            TruthValue,
+        ops2CurrentSwitchPositionSwUnit1       Ops2SwitchPositionValue,
+        ops2CurrentSwitchPositionSwUnit2       Ops2SwitchPositionValue,
+
+        ops2DisplayInternalVoltage1Supported   TruthValue,
+        ops2DisplayInternalVoltage2Supported   TruthValue,
+
+        ops2DisplayInputVoltageNominal         INTEGER,
+        ops2DisplayInternalVoltage1Nominal     INTEGER,
+        ops2DisplayInternalVoltage2Nominal     INTEGER
+    }
+
+    ops2SecondSwitchUnitAvailable OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if a second optical switch is available in this devices"
+    ::={ ops2DisplayEntry 1 }
+
+    ops2RfOmiDetectionSupported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "Reports true(1) if switch supports RF OMI detection"
+    ::={ ops2DisplayEntry 2 }
+
+    ops2CurrentSwitchPositionSwUnit1 OBJECT-TYPE
+        SYNTAX  Ops2SwitchPositionValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The current switch position (Switch unit #1)"
+    ::={ ops2DisplayEntry 3 }
+
+    ops2CurrentSwitchPositionSwUnit2 OBJECT-TYPE
+        SYNTAX  Ops2SwitchPositionValue
+        ACCESS  read-only
+        STATUS  mandatory
+        DESCRIPTION "The current switch position (Switch unit #2)"
+    ::={ ops2DisplayEntry 4 }
+
+-- *****
+
+    ops2DisplayInternalVoltage1Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  optional
+        DESCRIPTION "Reports true(1) if internal voltage no. 1 is supported"
+    ::={ ops2DisplayEntry 5 }
+
+    ops2DisplayInternalVoltage2Supported OBJECT-TYPE
+        SYNTAX  TruthValue
+        ACCESS  read-only
+        STATUS  optional
+        DESCRIPTION "Reports true(1) if internal voltage no. 2 is supported"
+    ::={ ops2DisplayEntry 6 }
+
+-- *****
+
+    ops2DisplayInputVoltageNominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  optional
+        DESCRIPTION "The nominal input voltage"
+    ::={ ops2DisplayEntry 7 }
+
+    ops2DisplayInternalVoltage1Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  optional
+        DESCRIPTION "The nominal internal voltage no. 1"
+    ::={ ops2DisplayEntry 8 }
+
+    ops2DisplayInternalVoltage2Nominal OBJECT-TYPE
+        SYNTAX  INTEGER
+        ACCESS  read-only
+        STATUS  optional
+        DESCRIPTION "The nominal internal voltage no. 2"
+    ::={ ops2DisplayEntry 9 }
+
+
+
+END
+
