@@ -1,9 +1,9 @@
-mib: BKTEL-HFC862-HMSNE-MIB:BKTEL-HFC862-OA-V01-MIB
+mib: BKHMSNE-MIB:BKOA-MIB
 
 modules:
     os:
-        version: BKTEL-HFC862-HMSNE-MIB::neModuleFirmwareVersion.49
-        hardware: BKTEL-HFC862-HMSNE-MIB::neModuleModelName.49
+        version: BKHMSNE-MIB::neModuleFirmwareVersion.49
+        hardware: BKHMSNE-MIB::neModuleModelName.49
 
     sensors:
         pre-cache:
