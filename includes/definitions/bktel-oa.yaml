@@ -1,5 +1,5 @@
 os: BKtel NECE-E
-text: 'BKtel Optical Amplifier'
+text: 'BKtel'
 type: network
 icon: bktel
 mib_dir: bktel

@@ -1,9 +1,9 @@
-mib: BKTEL-HFC862-HMSNE-MIB:BKTEL-HFC862-OA-V01-MIB
+mib: BKTEL-HFC862-OA-V01-MIB
 
 modules:
     os:
-        version: BKTEL-HFC862-HMSNE-MIB::neModuleFirmwareVersion.49
-        hardware: BKTEL-HFC862-HMSNE-MIB::neModuleModelName.49
+        version: '.1.3.6.1.4.1.7501.1.1.1.16.1.3.49'
+        hardware: '.1.3.6.1.4.1.7501.1.2.116.1.2.1.2.50'
 
     sensors:
         pre-cache:
@@ -26,6 +26,14 @@ modules:
                         - oaInputVoltageLo
                         - oaInputVoltageHiHi
                         - oaInputVoltageHi
+                        - ovtxOutputPowerLoLo
+                        - ovtxOutputPowerLo
+                        - ovtxOutputPowerHiHi
+                        - ovtxOutputPowerHi
+                        - ovtxTemperatureLoLo
+                        - ovtxTemperatureLo
+                        - ovtxTemperatureHiHi
+                        - ovtxTemperatureHi
                           
         temperature:
             data:
@@ -33,13 +41,25 @@ modules:
                     oid: oaMeasuringValuesTable
                     value: oaTemperatureValue
                     divisor: 10
-                    num_oid: '.1.3.6.1.4.1.7501.1.2.116.5.1.1.4.{{ $index }}'
+                    num_oid: '.1.3.6.1.4.1.7501.1.2.116.5.1.1.3.{{ $index }}'
                     descr: 'OA Temperature'
                     group: OA Temperature
                     high_limit: oaTemperatureHiHi
                     low_limit: oaTemperatureLoLo  
                     warn_limit: oaTemperatureHi
                     low_warn_limit: oaTemperatureLo
+
+                -
+                    oid: ovtxMeasuringValuesTable
+                    value:  ovtxTemperatureValue
+                    divisor: 10
+                    num_oid: '.1.3.6.1.4.1.7501.1.2.101.5.1.1.58.{{ $index }}'
+                    descr: 'OVTX Temperature'
+                    group: OVTX Temperature
+                    high_limit: ovtxTemperatureHiHi
+                    low_limit: ovtxTemperatureLoLo  
+                    warn_limit: ovtxTemperatureHi
+                    low_warn_limit: ovtxTemperatureLo                    
 
         dbm:
             options:
@@ -69,14 +89,27 @@ modules:
                     high_limit: oaOutputPwrOrGainHiHi
                     low_limit: oaOutputPwrOrGainLoLo  
                     warn_limit: oaOutputPwrOrGainHi
-                    low_warn_limit: oaOutputPwrOrGainLo                                 
+                    low_warn_limit: oaOutputPwrOrGainLo       
+
+                -
+                    oid: ovtxMeasuringValuesTable 
+                    value: ovtxOutputPowerValue
+                    divisor: 10
+                    num_oid: '.1.3.6.1.4.1.7501.1.2.101.5.1.1.23.{{ $index }}'
+                    descr: 'Output Power dBm'
+                    group: Output Power dBm  
+                    index: oa-out-dbm.{{ $index }}                         
+                    high_limit: ovtxOutputPowerHiHi
+                    low_limit: ovtxOutputPowerLoLo  
+                    warn_limit: ovtxOutputPowerHi
+                    low_warn_limit: ovtxOutputPowerLo                                                
 
         voltage:
             data:
                 -
                     oid: oaMeasuringValuesTable
                     value: oaInputVoltageValue
-                    divisor: 10000   
+                    divisor: 10
                     num_oid: '.1.3.6.1.4.1.7501.1.2.116.5.1.1.23.{{ $index }}'
                     descr: 'Amplifier Input voltage'
                     group: Amplifier Input voltage         
