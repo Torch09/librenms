@@ -42,13 +42,13 @@ foreach ($vtpdomains as $vtpdomain_id => $vtpdomain) {
 
                 //If true, the Port is a PVLAN port and the port_id wasn't returned in the right format.
                 //Also check if we're dealing with a N3K-C30xxxx, others could be fine
-                if ($dot1dBasePort < 55  && !$port_id && str_contains($device_hw['hardware'],'N3K-C30')){
+                if ($dot1dBasePort < 55 && ! $port_id && str_contains($device_hw['hardware'], 'N3K-C30')) {
                     d_echo("Found BasePort without portID, Port: $dot1dBasePort");
                     //Interfaces on Nexus use the same format: "Ethernetx/y", build interface string
                     $interface_string = "Ethernet1/$dot1dBasePort";
                     d_echo("Interface-Name: $interface_string, trying to find a match in ports Table");
                     $dev_int = dbFetchCell('SELECT * FROM `ports` WHERE `device_id` = ? AND `ifName` = ?', [$device['device_id'], $interface_string]);
-                    if (!$dev_int){
+                    if (! $dev_int) {
                         d_echo("Interface lookup failed for BasePort: $dot1dBasePort");
                     } else {
                         $port_id = $dev_int;
