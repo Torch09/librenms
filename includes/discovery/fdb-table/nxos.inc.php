@@ -40,19 +40,16 @@ foreach ($vtpdomains as $vtpdomain_id => $vtpdomain) {
                 }
                 $port_id = $portid_dict[$dot1dBasePort];
 
-                //Check if BasePort Number is below 50 and port_id isn't set.
-                //If true, the Port is an PVLAN port and the port_id wasn't returned in the right format.
-                //Also check if we're dealing with a N3K-C30xxxx, others can be fine
-                //d_echo("BasePort: $dot1dBasePort - PortID: $port_id - HW: $device_hw");
-                d_echo('DBG: FLAG: ' . str_contains($device_hw['hardware'],'N3K-C30') . "Hardware: " . $device_hw['hardware']);
-                if ($dot1dBasePort < 50  && !$port_id){
-                    d_echo("Found PVLAN Port without mapping: $dot1dBasePort");
-                    //Interfaces on Nexus use the same format: Ethernetx/y, build interface
-                    $device_interface = "Ethernet1/$dot1dBasePort";
-                    d_echo("Interface-Name: $device_interface, trying to find a match in ports Table");
-                    $dev_int = dbFetchCell('SELECT * FROM `ports` WHERE `device_id` = ? AND `ifName` = ?', [$device['device_id'], $device_interface]);
-                    if (!$dev_int){
-                        d_echo("Interface lookup failed for BasePort $dot1dBasePort");
+                //If true, the Port is a PVLAN port and the port_id wasn't returned in the right format.
+                //Also check if we're dealing with a N3K-C30xxxx, others could be fine
+                if ($dot1dBasePort < 55 && ! $port_id && str_contains($device_hw['hardware'], 'N3K-C30')) {
+                    d_echo("Found BasePort without portID, Port: $dot1dBasePort");
+                    //Interfaces on Nexus use the same format: "Ethernetx/y", build interface string
+                    $interface_string = "Ethernet1/$dot1dBasePort";
+                    d_echo("Interface-Name: $interface_string, trying to find a match in ports Table");
+                    $dev_int = dbFetchCell('SELECT * FROM `ports` WHERE `device_id` = ? AND `ifName` = ?', [$device['device_id'], $interface_string]);
+                    if (! $dev_int) {
+                        d_echo("Interface lookup failed for BasePort: $dot1dBasePort");
                     } else {
                         $port_id = $dev_int;
                     }
